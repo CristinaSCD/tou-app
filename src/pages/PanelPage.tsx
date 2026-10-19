@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom';
-import { canSeePanel, nextPanelMeeting, readyForPanel, scoreBlocker } from '../domain/rules';
+import { PANEL_SIZE, canSeePanel, nextPanelMeeting, readyForPanel, scoreBlocker } from '../domain/rules';
 import type { Idea } from '../domain/types';
 import { useApp } from '../store';
-import { ConfidentialTag, Empty, NoAccess, PageHeader, fmtDate, nameOf, plural } from '../ui';
+import { ConfidentialTag, Empty, NoAccess, PageHeader, fmtDate, plural, submitterLabel } from '../ui';
 
 function Section({ title, ideas }: { title: string; ideas: Idea[] }) {
   const { state, me } = useApp();
-  const reviewers = state.colleagues.filter((c) => c.isReviewer);
   if (ideas.length === 0) return null;
 
   return (
@@ -16,7 +15,6 @@ function Section({ title, ideas }: { title: string; ideas: Idea[] }) {
       </h2>
       <ul className="plain rows">
         {ideas.map((i) => {
-          const eligible = reviewers.filter((r) => r.id !== i.submitterId).length;
           const own = i.submitterId === me.id;
           const scored = i.scores.some((s) => s.reviewerId === me.id);
           const canScore = !scoreBlocker(me, i);
@@ -28,7 +26,9 @@ function Section({ title, ideas }: { title: string; ideas: Idea[] }) {
                 </Link>{' '}
                 {i.confidential && <ConfidentialTag />} {i.resubmissions > 0 && <span className="badge">Resubmitted</span>}
                 <p className="hint">
-                  {nameOf(state, i.submitterId)}, {i.office}. {plural(i.votes.length, 'vote')}. {i.scores.length} of {eligible} scored.
+                  {submitterLabel(state, me, i)}, {i.office}. Submitted {fmtDate(i.createdAt)}. {plural(i.votes.length, 'vote')}.{' '}
+                  {/* Always out of six, so a reviewer who cannot score their own idea is not given away (PRD M6.11). */}
+                  {i.scores.length} of {PANEL_SIZE} scored.
                 </p>
               </div>
               {own ? (

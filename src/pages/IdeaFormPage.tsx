@@ -1,12 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as actions from '../domain/actions';
-import { canViewIdea, editBlocker, resubmitBlocker, similarIdeas } from '../domain/rules';
+import { TEXT_MAX, TITLE_MAX, canViewIdea, editBlocker, resubmitBlocker, similarIdeas } from '../domain/rules';
 import type { IdeaContent } from '../domain/types';
 import { useApp } from '../store';
 import { IdeaStage, NoAccess, PageHeader } from '../ui';
 
 const EMPTY: IdeaContent = { title: '', problem: '', solution: '', categoryId: '', expectedImpact: '' };
+
+type TextField = Exclude<keyof IdeaContent, 'categoryId'>;
+const limitOf = (key: TextField) => (key === 'title' ? TITLE_MAX : TEXT_MAX);
 
 const COPY = {
   new: { title: 'Submit an idea', button: 'Submit idea', done: 'Your idea has been submitted. It will be considered at the next panel meeting.' },
@@ -32,7 +35,10 @@ export default function IdeaFormPage({ mode }: { mode: 'new' | 'edit' | 'resubmi
       : EMPTY,
   );
   const [confidential, setConfidential] = useState(false);
+  const [anonymous, setAnonymous] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  // A second click while the first submission is being handled must not create a second idea (PRD M1.6).
+  const submitting = useRef(false);
 
   if (mode !== 'new') {
     if (!existing || !canViewIdea(me, existing))
@@ -46,8 +52,8 @@ export default function IdeaFormPage({ mode }: { mode: 'new' | 'edit' | 'resubmi
       );
   }
 
-  const categories = state.categories.filter((k) => k.active);
   const missing = (key: keyof IdeaContent) => showErrors && !form[key].trim();
+  const tooLong = (key: TextField) => form[key].trim().length > limitOf(key);
   const set = (key: keyof IdeaContent) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const similar = form.categoryId || form.title.trim().length > 3 ? similarIdeas(state, me, form.categoryId, form.title, existing?.id) : [];
   const lastDecline = existing && [...existing.decisions].reverse().find((d) => d.to === 'declined');
@@ -56,39 +62,57 @@ export default function IdeaFormPage({ mode }: { mode: 'new' | 'edit' | 'resubmi
     e.preventDefault();
     setShowErrors(true);
     if ((Object.keys(EMPTY) as (keyof IdeaContent)[]).some((key) => !form[key].trim())) return;
+    if ((['title', 'problem', 'solution', 'expectedImpact'] as TextField[]).some(tooLong)) return;
+    if (submitting.current) return;
+    submitting.current = true;
     if (mode === 'new') {
       let newId = '';
       const ok = run((s) => {
-        const result = actions.submitIdea(s, me.id, form, confidential);
+        const result = actions.submitIdea(s, me.id, form, confidential, anonymous);
         newId = result.ideaId;
         return result.state;
       }, COPY.new.done);
       if (ok) navigate(`/ideas/${newId}`);
+      else submitting.current = false;
     } else if (existing) {
       const ok = run(
         (s) => (mode === 'edit' ? actions.editIdea(s, me.id, existing.id, form) : actions.resubmitIdea(s, me.id, existing.id, form)),
         COPY[mode].done,
       );
       if (ok) navigate(`/ideas/${existing.id}`);
+      else submitting.current = false;
     }
   }
 
-  const field = (key: keyof IdeaContent, label: string, hint: string, rows?: number) => (
-    <div className={`field ${missing(key) ? 'invalid' : ''}`}>
-      <label htmlFor={key}>{label}</label>
-      {hint && (
-        <span className="hint" id={`${key}-hint`}>
-          {hint}
-        </span>
-      )}
-      {rows ? (
-        <textarea id={key} rows={rows} value={form[key]} onChange={set(key)} aria-describedby={`${key}-hint`} aria-invalid={missing(key)} />
-      ) : (
-        <input id={key} type="text" value={form[key]} onChange={set(key)} aria-describedby={`${key}-hint`} aria-invalid={missing(key)} />
-      )}
-      {missing(key) && <span className="error-text">Error: please complete this field.</span>}
-    </div>
-  );
+  const field = (key: TextField, label: string, hint: string, rows?: number) => {
+    const length = form[key].trim().length;
+    const over = showErrors && tooLong(key);
+    const invalid = missing(key) || over;
+    return (
+      <div className={`field ${invalid ? 'invalid' : ''}`}>
+        <label htmlFor={key}>{label}</label>
+        {hint && (
+          <span className="hint" id={`${key}-hint`}>
+            {hint}
+          </span>
+        )}
+        {rows ? (
+          <textarea id={key} rows={rows} value={form[key]} onChange={set(key)} aria-describedby={`${key}-hint ${key}-count`} aria-invalid={invalid} />
+        ) : (
+          <input id={key} type="text" value={form[key]} onChange={set(key)} aria-describedby={`${key}-hint ${key}-count`} aria-invalid={invalid} />
+        )}
+        {length > limitOf(key) * 0.9 && (
+          <span className="hint" id={`${key}-count`}>
+            {length.toLocaleString('en-GB')} of {limitOf(key).toLocaleString('en-GB')} characters
+          </span>
+        )}
+        {missing(key) && <span className="error-text">Error: please complete this field.</span>}
+        {over && (
+          <span className="error-text">Error: please shorten this to {limitOf(key).toLocaleString('en-GB')} characters or fewer.</span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -117,7 +141,7 @@ export default function IdeaFormPage({ mode }: { mode: 'new' | 'edit' | 'resubmi
             <label htmlFor="categoryId">Category</label>
             <select id="categoryId" value={form.categoryId} onChange={set('categoryId')} aria-invalid={missing('categoryId')}>
               <option value="">Choose a category</option>
-              {categories.map((k) => (
+              {state.categories.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.name}
                 </option>
@@ -128,18 +152,33 @@ export default function IdeaFormPage({ mode }: { mode: 'new' | 'edit' | 'resubmi
           {field('expectedImpact', 'Expected impact', 'An estimate is fine.', 2)}
 
           {mode === 'new' ? (
-            <div className="field checkbox">
-              <input id="confidential" type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
-              <label htmlFor="confidential">
-                This idea is confidential
-                <span className="hint">
-                  For sensitive client or commercial information. Only you, the innovation panel and an assigned pilot
-                  owner will see it.
-                </span>
-              </label>
-            </div>
+            <>
+              <div className="field checkbox">
+                <input id="confidential" type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
+                <label htmlFor="confidential">
+                  This idea is confidential
+                  <span className="hint">
+                    For sensitive client or commercial information. Only you, the innovation panel and an assigned pilot
+                    owner will see it.
+                  </span>
+                </label>
+              </div>
+              <div className="field checkbox">
+                <input id="anonymous" type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />
+                <label htmlFor="anonymous">
+                  Submit anonymously
+                  <span className="hint">
+                    Your name will not be shown to anyone, including the innovation panel and the admin. You can still
+                    follow the idea and will be notified as usual. You cannot change this later.
+                  </span>
+                </label>
+              </div>
+            </>
           ) : (
-            existing?.confidential && <p className="hint">This idea is confidential. Only you, the innovation panel and an assigned pilot owner can see it.</p>
+            <>
+              {existing?.confidential && <p className="hint">This idea is confidential. Only you, the innovation panel and an assigned pilot owner can see it.</p>}
+              {existing?.anonymous && <p className="hint">This idea was submitted anonymously. Your name is not shown to anyone, and this cannot be changed.</p>}
+            </>
           )}
 
           <div className="form-actions">

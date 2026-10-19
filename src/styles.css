@@ -979,6 +979,15 @@ table.data tr.total td {
   padding: 14px 0;
   border-top: 1px solid var(--grey-200);
 }
+.rows li.replacing {
+  flex-wrap: wrap;
+}
+.rows li.replacing .inline-form {
+  flex-basis: 100%;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
 .rows li:first-child {
   border-top: 0;
   padding-top: 0;

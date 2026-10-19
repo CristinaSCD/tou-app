@@ -16,7 +16,6 @@ export interface Colleague {
 export interface Category {
   id: string;
   name: string;
-  active: boolean;
 }
 
 export interface Vote {
@@ -43,7 +42,7 @@ export interface Score {
   at: string;
 }
 
-/** A panel decision. `from === to` records that the idea was kept in its stage. */
+/** A stage change recorded for the panel, or a change of pilot owner (`kind: 'reassignment'`, where `from === to`). */
 export interface Decision {
   id: string;
   from: Stage;
@@ -75,6 +74,8 @@ export interface IdeaContent {
 export interface PreviousVersion {
   content: IdeaContent;
   scores: Score[];
+  /** Votes stay with the version they were cast for; a resubmission starts with none. */
+  votes: Vote[];
   declineReason: string;
   declinedAt: string;
 }
@@ -82,6 +83,11 @@ export interface PreviousVersion {
 export interface Idea extends IdeaContent {
   id: string;
   confidential: boolean;
+  /**
+   * Chosen once, at submission (PRD D38). The submitter's name is then shown to no one else, while
+   * `submitterId` stays as the private ownership link for notifications and ownership rules (D39).
+   */
+  anonymous: boolean;
   submitterId: string;
   office: Office;
   stage: Stage;

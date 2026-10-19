@@ -29,10 +29,33 @@ export const CRITERIA: { key: CriterionKey; label: string; hint: string }[] = [
 
 export const MAX_RESUBMISSIONS = 1;
 
-/** Stages the panel can record from each stage. Same stage means "kept under review". */
+/** The innovation panel always has exactly six members (PRD D45). Scoring progress is shown out of six. */
+export const PANEL_SIZE = 6;
+
+/** Besides the admin, who chairs the panel, its members come from the offices in this mix (PRD D45). */
+export const PANEL_OFFICES: Record<Office, number> = { Bristol: 2, Leeds: 2, Glasgow: 1 };
+
+/** Returns why a panel membership breaks the required size or office mix, or null when it is valid. */
+export function panelCompositionProblem(colleagues: Colleague[]): string | null {
+  const panel = colleagues.filter((c) => c.isReviewer);
+  if (panel.length !== PANEL_SIZE) return `The panel must have exactly ${PANEL_SIZE} members.`;
+  if (panel.filter((c) => c.isAdmin).length !== 1) return 'The panel must be chaired by the admin.';
+  for (const office of OFFICES) {
+    const needed = PANEL_OFFICES[office];
+    if (panel.filter((c) => !c.isAdmin && c.office === office).length !== needed)
+      return `Besides the chair, the panel needs ${needed} ${needed === 1 ? 'member' : 'members'} based in ${office}.`;
+  }
+  return null;
+}
+
+/** Longest allowed title and other text fields of an idea (PRD M1.7). */
+export const TITLE_MAX = 100;
+export const TEXT_MAX = 2000;
+
+/** The allowed stage changes (PRD core process rules). Every other move is blocked. */
 export const TRANSITIONS: Record<Stage, Stage[]> = {
   submitted: ['under_review', 'declined'],
-  under_review: ['piloting', 'under_review', 'declined'],
+  under_review: ['piloting', 'declined'],
   piloting: ['implemented', 'declined'],
   implemented: [],
   declined: [],
@@ -40,6 +63,11 @@ export const TRANSITIONS: Record<Stage, Stage[]> = {
 
 export const isSubmitter = (c: Colleague, idea: Idea) => idea.submitterId === c.id;
 export const isPilotOwner = (c: Colleague, idea: Idea) => idea.pilotOwnerId === c.id;
+
+export const ANONYMOUS_SUBMITTER = 'Anonymous Submitter';
+
+/** On their own anonymous idea, the submitter comments as "Anonymous Submitter" (PRD S1.1, S1.9, D42). */
+export const writesAnonymously = (authorId: string, idea: Idea) => idea.anonymous && authorId === idea.submitterId;
 
 // ---- Visibility -----------------------------------------------------------
 
@@ -50,19 +78,15 @@ export function canViewIdea(c: Colleague, idea: Idea): boolean {
 }
 
 /**
- * How a colleague sees the panel's scores on an idea they can open (PRD M3.4, M5.4, M6.7, M6.8).
- * - anonymous: scores and feedback without reviewer names. Everyone outside the panel, and a
- *   reviewer looking at their own idea.
- * - named: a reviewer who has scored, or who can no longer score.
- * - hidden: a reviewer who has not scored yet, so their own score is not influenced.
+ * Whether a colleague can see the panel's scores on an idea (PRD M3.4, M5.4, M6.8, M6.9).
+ * A reviewer who could still score but has not done so yet sees no scores, so their own is not
+ * influenced. Scores never carry reviewer names, for anyone: that keeps a reviewer who cannot
+ * score their own anonymous idea from being singled out (team decision, 19 October).
  */
-export type ScoreView = 'named' | 'anonymous' | 'hidden';
-
-export function scoreView(c: Colleague, idea: Idea): ScoreView {
-  if (!canViewIdea(c, idea)) return 'hidden';
-  if (!c.isReviewer || isSubmitter(c, idea)) return 'anonymous';
-  const hasScored = idea.scores.some((s) => s.reviewerId === c.id);
-  return hasScored || scoreBlocker(c, idea) ? 'named' : 'hidden';
+export function canSeeScores(c: Colleague, idea: Idea): boolean {
+  if (!canViewIdea(c, idea)) return false;
+  if (!c.isReviewer || isSubmitter(c, idea)) return true;
+  return idea.scores.some((s) => s.reviewerId === c.id) || Boolean(scoreBlocker(c, idea));
 }
 
 /** Earlier versions of a resubmitted idea are context for the panel, and for the submitter. */
@@ -89,13 +113,15 @@ export function voteBlocker(c: Colleague, idea: Idea): string | null {
   if (!canViewIdea(c, idea)) return NOT_AVAILABLE;
   if (isSubmitter(c, idea)) return 'You cannot vote for your own idea.';
   if (isClosed(idea)) return 'Voting has closed because this idea has reached a final outcome.';
+  if (idea.confidential && !c.isReviewer) return 'Only innovation panel reviewers can vote on confidential ideas.';
   return null;
 }
 
-/** A submitter can make their idea confidential at any time, and public again only while Submitted. */
+/** A submitter can make their idea confidential while it is open, and public again only while Submitted. */
 export function confidentialityBlocker(c: Colleague, idea: Idea, makeConfidential: boolean): string | null {
   if (!canViewIdea(c, idea)) return NOT_AVAILABLE;
   if (!isSubmitter(c, idea)) return 'Only the colleague who submitted an idea can change whether it is confidential.';
+  if (makeConfidential && isClosed(idea)) return 'Only ideas that are still open can be made confidential.';
   if (!makeConfidential && idea.stage !== 'submitted')
     return 'A confidential idea can only be made public while it is still Submitted.';
   return null;
@@ -140,6 +166,7 @@ export function scoreBlocker(c: Colleague, idea: Idea): string | null {
 
 export function decisionBlocker(c: Colleague, idea: Idea, to?: Stage): string | null {
   if (!c.isReviewer) return 'Only innovation panel reviewers can record a stage change.';
+  if (isSubmitter(c, idea)) return 'You submitted this idea, so you cannot record the panel\'s decision on it.';
   if (TRANSITIONS[idea.stage].length === 0) return 'This idea has reached a final outcome.';
   if (idea.stage === 'piloting' && !idea.pilotResult)
     return 'The pilot owner has not submitted the final results yet.';
@@ -151,6 +178,14 @@ export function decisionBlocker(c: Colleague, idea: Idea, to?: Stage): string | 
 export function editBlocker(c: Colleague, idea: Idea): string | null {
   if (!isSubmitter(c, idea)) return 'Only the colleague who submitted an idea can change or withdraw it.';
   if (idea.stage !== 'submitted') return 'This idea is locked because the panel has started reviewing it.';
+  return null;
+}
+
+/** Withdrawing deletes the idea, so a resubmitted idea cannot be withdrawn: its history is kept (PRD S5.5). */
+export function withdrawBlocker(c: Colleague, idea: Idea): string | null {
+  const blocker = editBlocker(c, idea);
+  if (blocker) return blocker;
+  if (idea.resubmissions > 0) return 'A resubmitted idea cannot be withdrawn, so its earlier version and history are kept.';
   return null;
 }
 
@@ -199,11 +234,14 @@ export function nextPanelMeeting(from: Date): Date {
 
 export const quarterStart = (now: Date) => new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
 
-/** Most-backed ideas by votes cast this quarter. Confidential ideas never appear, whoever is looking. */
+/**
+ * Most-backed open ideas by votes cast this quarter. Implemented and Declined ideas are left out
+ * because voting has ended. Confidential ideas never appear, whoever is looking.
+ */
 export function leaderboard(state: AppState, now: Date, limit = 10) {
   const since = quarterStart(now).toISOString();
   return state.ideas
-    .filter((i) => !i.confidential)
+    .filter((i) => !i.confidential && !isClosed(i))
     .map((idea) => ({ idea, votes: idea.votes.filter((v) => v.at >= since).length }))
     .filter((row) => row.votes > 0)
     .sort((a, b) => b.votes - a.votes || a.idea.title.localeCompare(b.idea.title))

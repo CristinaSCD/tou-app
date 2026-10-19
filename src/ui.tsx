@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import * as actions from './domain/actions';
-import { CRITERIA, STAGE_LABEL, pilotStatus, voteBlocker } from './domain/rules';
-import type { AppState, CriterionKey, Idea, Stage } from './domain/types';
+import { ANONYMOUS_SUBMITTER, CRITERIA, STAGE_LABEL, isSubmitter, pilotStatus, voteBlocker } from './domain/rules';
+import type { AppState, Colleague, CriterionKey, Idea, Stage } from './domain/types';
 import { useApp } from './store';
 
 export const fmtDate = (iso: string | Date) =>
@@ -14,6 +14,13 @@ export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' :
 
 export const nameOf = (state: AppState, id: string | undefined) =>
   state.colleagues.find((c) => c.id === id)?.name ?? 'A former colleague';
+
+/**
+ * Who submitted an idea, as the viewer may see it. On an anonymous idea no one else ever sees the
+ * name, including reviewers and the admin (PRD M1.8, M3.7); the submitter sees that it is theirs.
+ */
+export const submitterLabel = (state: AppState, viewer: Colleague, idea: Idea) =>
+  !idea.anonymous ? nameOf(state, idea.submitterId) : isSubmitter(viewer, idea) ? 'You, anonymously' : ANONYMOUS_SUBMITTER;
 
 export const categoryOf = (state: AppState, id: string) =>
   state.categories.find((k) => k.id === id)?.name ?? 'Uncategorised';
@@ -97,7 +104,7 @@ export function VoteButton({ idea }: { idea: Idea }) {
 }
 
 export function IdeaCard({ idea }: { idea: Idea }) {
-  const { state } = useApp();
+  const { state, me } = useApp();
   return (
     <article className="idea-card">
       <VoteButton idea={idea} />
@@ -111,7 +118,7 @@ export function IdeaCard({ idea }: { idea: Idea }) {
           {idea.confidential && <ConfidentialTag />}
           <span>{categoryOf(state, idea.categoryId)}</span>
           <span>
-            {nameOf(state, idea.submitterId)}, {idea.office}
+            {submitterLabel(state, me, idea)}, {idea.office}
           </span>
         </p>
       </div>

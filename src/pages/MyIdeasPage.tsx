@@ -63,7 +63,7 @@ export default function MyIdeasPage() {
               return (
                 <li key={i.id}>
                   <div>
-                    <Link to={`/ideas/${i.id}`} className="row-title">{i.title}</Link> <IdeaStage idea={i} /> {i.confidential && <ConfidentialTag />}
+                    <Link to={`/ideas/${i.id}`} className="row-title">{i.title}</Link> <IdeaStage idea={i} /> {i.confidential && <ConfidentialTag />} {i.anonymous && <span className="badge">Anonymous</span>}
                     <p className="hint">
                       {nextStep(i)} {plural(i.votes.length, 'vote')}.
                     </p>

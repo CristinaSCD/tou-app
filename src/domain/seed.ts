@@ -25,10 +25,10 @@ export function buildSeed(now: Date = new Date()): AppState {
   ];
 
   const categories: Category[] = [
-    { id: 'cat-client', name: 'Client Delivery', active: true },
-    { id: 'cat-tools', name: 'Internal Tools & Processes', active: true },
-    { id: 'cat-sustain', name: 'Sustainability', active: true },
-    { id: 'cat-people', name: 'People & Culture', active: true },
+    { id: 'cat-client', name: 'Client Delivery' },
+    { id: 'cat-tools', name: 'Internal Tools & Processes' },
+    { id: 'cat-sustain', name: 'Sustainability' },
+    { id: 'cat-people', name: 'People & Culture' },
   ];
 
   /** Votes from the given colleagues, one a day, the first cast `firstDaysAgo` days ago. */
@@ -62,6 +62,7 @@ export function buildSeed(now: Date = new Date()): AppState {
   type Required = Pick<Idea, 'id' | 'title' | 'problem' | 'solution' | 'categoryId' | 'expectedImpact' | 'submitterId' | 'createdAt'>;
   const idea = (fields: Required & Partial<Idea>): Idea => ({
     confidential: false,
+    anonymous: false,
     office: colleagues.find((c) => c.id === fields.submitterId)!.office,
     stage: 'submitted',
     stageEnteredAt: fields.createdAt,
@@ -277,7 +278,7 @@ export function buildSeed(now: Date = new Date()): AppState {
       createdAt: ago(100),
       stageEnteredAt: ago(5),
       resubmissions: 1,
-      votes: votes(90, 'amara', 'niamh', 'rory', 'eleanor', 'bethan'),
+      votes: votes(4, 'eleanor', 'bethan'),
       decisions: [decision('submitted', 'declined', 62, 'The idea overlapped with the existing talks in each office and did not explain who would organise the sessions.')],
       previousVersions: [
         {
@@ -289,6 +290,7 @@ export function buildSeed(now: Date = new Date()): AppState {
             expectedImpact: 'More colleagues hear each talk.',
           },
           scores: [score('isla', 3, 4, 2, 66, 'Unclear who would run this.'), score('tobias', 2, 4, 3, 65)],
+          votes: votes(90, 'amara', 'niamh', 'rory'),
           declineReason: 'The idea overlapped with the existing talks in each office and did not explain who would organise the sessions.',
           declinedAt: ago(62),
         },
@@ -306,7 +308,7 @@ export function buildSeed(now: Date = new Date()): AppState {
       stage: 'declined',
       stageEnteredAt: ago(64),
       resubmissions: 1,
-      votes: votes(150, 'bethan', 'sanjay', 'rory', 'mateus'),
+      votes: votes(110, 'rory', 'mateus'),
       scores: [score('priya', 3, 1, 2, 70, 'Client contracts make this difficult.'), score('marguerite', 3, 2, 2, 70)],
       decisions: [
         decision('submitted', 'declined', 125, 'The proposal did not address client contract requirements for site attendance.'),
@@ -322,6 +324,7 @@ export function buildSeed(now: Date = new Date()): AppState {
             expectedImpact: 'Improved wellbeing.',
           },
           scores: [score('dev', 3, 1, 1, 130)],
+          votes: votes(150, 'bethan', 'sanjay'),
           declineReason: 'The proposal did not address client contract requirements for site attendance.',
           declinedAt: ago(125),
         },
@@ -367,12 +370,14 @@ export function buildSeed(now: Date = new Date()): AppState {
       stage: 'under_review',
       stageEnteredAt: ago(92),
       votes: votes(8, 'isla', 'niamh', 'sanjay', 'mateus', 'jonah', 'amara', 'bethan'),
-      comments: [comment('isla', 80, 'We would need to check operator licensing and insurance.')],
+      comments: [
+        comment('isla', 80, 'We would need to check operator licensing and insurance.'),
+        comment('isla', 62, 'The panel needs equipment and licensing costs before deciding. I am gathering quotes.'),
+        comment('isla', 31, 'Quotes have arrived from two of three suppliers. The panel will decide once the third is in.'),
+      ],
       scores: [score('isla', 4, 2, 3, 90, 'Promising, but equipment and licensing costs are not yet known.'), score('tobias', 4, 2, 2, 89), score('dev', 5, 2, 3, 89)],
       decisions: [
         decision('submitted', 'under_review', 92, 'An interesting idea with clear client benefit. Taken forward for scoring.'),
-        decision('under_review', 'under_review', 62, 'The panel needs equipment and licensing costs before deciding. Isla MacAllister is gathering quotes.', 'isla'),
-        decision('under_review', 'under_review', 31, 'Quotes have arrived from two of three suppliers. The panel will decide once the third is in.', 'isla'),
       ],
     }),
     idea({
@@ -385,6 +390,60 @@ export function buildSeed(now: Date = new Date()): AppState {
       submitterId: 'c-niamh',
       createdAt: ago(3),
       votes: votes(2, 'jonah', 'eleanor', 'amara', 'rory'),
+    }),
+    // Anonymous ideas. No screen shows who submitted these; the names here are the private link only.
+    idea({
+      id: 'idea-meeting-free',
+      title: 'Meeting-free Wednesday mornings',
+      problem: 'Design time is broken up by short internal meetings, so complex work is pushed into evenings.',
+      solution: 'Keep Wednesday mornings free of internal meetings in all three offices, with client meetings still allowed.',
+      categoryId: 'cat-people',
+      expectedImpact: 'A protected block of focused time each week and fewer late finishes.',
+      submitterId: 'c-tobias', // a reviewer, who therefore cannot score or move it
+      anonymous: true,
+      createdAt: ago(9),
+      votes: votes(8, 'jonah', 'bethan', 'rory', 'amara', 'niamh'),
+      comments: [
+        comment('bethan', 7, 'Would this include project team meetings, or only internal admin meetings?'),
+        comment('tobias', 6, 'Only internal meetings. Project teams could still meet if a client is involved.'),
+      ],
+      scores: [score('marguerite', 4, 5, 4, 5, 'Cheap to try. The offices would need to agree the same morning.')],
+    }),
+    idea({
+      id: 'idea-subcontractor-safety',
+      title: 'Independent review of a subcontractor\'s site safety practices',
+      problem: 'Several site colleagues have informal concerns about one subcontractor\'s safety practices but are reluctant to raise them openly.',
+      solution: 'Commission an independent review of that subcontractor\'s recent site records before the next work package is let.',
+      categoryId: 'cat-client',
+      expectedImpact: 'Concerns are checked properly and colleagues feel safe raising them.',
+      submitterId: 'c-eleanor',
+      anonymous: true,
+      confidential: true,
+      createdAt: ago(25),
+      stage: 'under_review',
+      stageEnteredAt: ago(18),
+      scores: [score('priya', 5, 3, 4, 16, 'Important to act on, and to protect the colleagues who raised it.'), score('isla', 4, 3, 4, 15)],
+      decisions: [decision('submitted', 'under_review', 18, 'A serious concern that needs a proportionate response. The panel will discuss the scope of a review.')],
+    }),
+    idea({
+      id: 'idea-van-pool',
+      title: 'Shared van pool for Glasgow site visits',
+      problem: 'Colleagues drive their own cars to Glasgow sites, which is costly to reimburse and hard to fit with site kit.',
+      solution: 'Lease two vans that colleagues book through the shared calendar, kept stocked with standard site kit.',
+      categoryId: 'cat-sustain',
+      expectedImpact: 'Lower mileage claims and fewer car journeys to site.',
+      submitterId: 'c-rory', // also the pilot owner, which only the system knows
+      anonymous: true,
+      createdAt: ago(70),
+      stage: 'piloting',
+      stageEnteredAt: ago(21),
+      pilotOwnerId: 'c-rory',
+      votes: votes(60, 'niamh', 'isla', 'sanjay', 'jonah'),
+      scores: [score('isla', 4, 3, 4, 40), score('dev', 3, 3, 4, 39), score('callum', 4, 2, 4, 39)],
+      decisions: [
+        decision('submitted', 'under_review', 45, 'A practical idea for the Glasgow office. Taken forward for scoring.'),
+        decision('under_review', 'piloting', 21, 'Agreed a three-month pilot with one leased van, led by Rory Drummond, who books most Glasgow site visits.', 'isla'),
+      ],
     }),
   ];
 

@@ -3,7 +3,7 @@ import { RuleError } from './domain/actions';
 import { buildSeed } from './domain/seed';
 import type { AppState, Colleague } from './domain/types';
 
-const STORAGE_KEY = 'idea-pipeline-prototype-v2';
+const STORAGE_KEY = 'idea-pipeline-prototype-v4-anonymous';
 const DEFAULT_COLLEAGUE = 'c-jonah';
 
 interface Saved {

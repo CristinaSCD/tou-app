@@ -1,16 +1,16 @@
+import { useState } from 'react';
 import { OFFICES, STAGES, STAGE_LABEL, canSeeDashboard } from '../domain/rules';
 import type { Idea, Stage } from '../domain/types';
 import { useApp } from '../store';
 import { Bars, NoAccess, PageHeader, categoryOf, daysSince, fmtDate, plural } from '../ui';
 
 const OPEN_STAGES: Stage[] = ['submitted', 'under_review', 'piloting'];
-/** Longer than two monthly panel meetings in one stage. */
-const SLOW_AFTER_DAYS = 60;
 
 const count = <T,>(items: T[], test: (item: T) => boolean) => items.filter(test).length;
 
 export default function DashboardPage() {
   const { state, me } = useApp();
+  const [longestFirst, setLongestFirst] = useState(true);
   if (!canSeeDashboard(me))
     return <NoAccess title="Dashboard">The pipeline dashboard is for the admin and the innovation panel.</NoAccess>;
 
@@ -22,12 +22,13 @@ export default function DashboardPage() {
   const implemented = count(ideas, (i) => i.stage === 'implemented');
   const label = (i: Idea) => (i.confidential ? 'Confidential idea' : i.title);
 
-  const slow = ideas
-    .filter((i) => OPEN_STAGES.includes(i.stage) && daysSince(i.stageEnteredAt) > SLOW_AFTER_DAYS)
-    .sort((a, b) => a.stageEnteredAt.localeCompare(b.stageEnteredAt));
+  // Days since each open idea most recently entered its stage (PRD M9.5). No threshold or delay flag (D21).
+  const waiting = ideas
+    .filter((i) => OPEN_STAGES.includes(i.stage))
+    .sort((a, b) => (longestFirst ? 1 : -1) * a.stageEnteredAt.localeCompare(b.stageEnteredAt));
 
   const recent = ideas
-    .flatMap((i) => i.decisions.filter((d) => d.from !== d.to).map((d) => ({ idea: i, decision: d })))
+    .flatMap((i) => i.decisions.filter((d) => d.kind !== 'reassignment').map((d) => ({ idea: i, decision: d })))
     .sort((a, b) => b.decision.at.localeCompare(a.decision.at))
     .slice(0, 5);
 
@@ -79,7 +80,7 @@ export default function DashboardPage() {
         </section>
         <section className="card">
           <h2>Ideas by category</h2>
-          <Bars tone="copper" rows={state.categories.map((k) => ({ label: k.name, value: count(ideas, (i) => i.categoryId === k.id), note: k.active ? undefined : '(retired)' }))} />
+          <Bars tone="copper" rows={state.categories.map((k) => ({ label: k.name, value: count(ideas, (i) => i.categoryId === k.id) }))} />
         </section>
         <section className="card">
           <h2>Ideas by office</h2>
@@ -126,23 +127,38 @@ export default function DashboardPage() {
       <div className="grid-2">
         <section className="card">
           <h2>
-            Waiting more than {SLOW_AFTER_DAYS} days in one stage <span className="muted">{slow.length}</span>
+            Days in current stage <span className="muted">{plural(waiting.length, 'open idea')}</span>
           </h2>
-          {slow.length === 0 ? (
-            <p className="hint">No ideas have been waiting that long.</p>
+          {waiting.length === 0 ? (
+            <p className="hint">There are no open ideas.</p>
           ) : (
-            <ul className="plain rows">
-              {slow.map((i) => (
-                <li key={i.id}>
-                  <span>
-                    {label(i)} <span className="hint">{i.office}</span>
-                  </span>
-                  <span className="hint">
-                    {STAGE_LABEL[i.stage]} for {plural(daysSince(i.stageEnteredAt), 'day')}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="scroll-x">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Idea</th>
+                    <th scope="col">Stage</th>
+                    <th scope="col" className="num" aria-sort={longestFirst ? 'descending' : 'ascending'}>
+                      <button type="button" className="link" onClick={() => setLongestFirst(!longestFirst)}>
+                        Days {longestFirst ? '↓' : '↑'}
+                        <span className="visually-hidden">, sorted {longestFirst ? 'longest' : 'shortest'} first. Change order</span>
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {waiting.map((i) => (
+                    <tr key={i.id}>
+                      <th scope="row">
+                        {label(i)} <span className="hint">{i.office}</span>
+                      </th>
+                      <td>{STAGE_LABEL[i.stage]}</td>
+                      <td className="num">{daysSince(i.stageEnteredAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
         <section className="card">

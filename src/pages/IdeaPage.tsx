@@ -2,11 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as actions from '../domain/actions';
 import {
+  ANONYMOUS_SUBMITTER,
   CRITERIA,
   STAGE_LABEL,
   TRANSITIONS,
   adminRemoveCommentBlocker,
   averageScores,
+  canSeeScores,
   canSeePreviousVersions,
   canViewIdea,
   confidentialityBlocker,
@@ -20,7 +22,8 @@ import {
   reassignPilotBlocker,
   resubmitBlocker,
   scoreBlocker,
-  scoreView,
+  withdrawBlocker,
+  writesAnonymously,
 } from '../domain/rules';
 import type { CriterionKey, Decision, Idea, Score, Stage } from '../domain/types';
 import { useApp } from '../store';
@@ -36,6 +39,7 @@ import {
   nameOf,
   plural,
   ratingsComplete,
+  submitterLabel,
 } from '../ui';
 
 const NO_RATINGS: Record<CriterionKey, number> = { impact: 0, cost: 0, feasibility: 0 };
@@ -51,8 +55,10 @@ export default function IdeaPage() {
 
   const mine = isSubmitter(me, idea);
 
+  // Keyed by idea, so moving from one idea to another never carries over an open form or its
+  // unsaved ratings and text.
   return (
-    <article>
+    <article key={idea.id}>
       <Link to="/" className="back-link">
         All ideas
       </Link>
@@ -66,7 +72,8 @@ export default function IdeaPage() {
             <span>{categoryOf(state, idea.categoryId)}</span>
             <span>{idea.office}</span>
             <span>
-              {mine ? 'Your idea' : nameOf(state, idea.submitterId)}, {fmtDate(idea.createdAt)}
+              {!mine ? submitterLabel(state, me, idea) : idea.anonymous ? 'Your idea, submitted anonymously' : 'Your idea'},{' '}
+              {fmtDate(idea.createdAt)}
             </span>
           </p>
         </div>
@@ -105,18 +112,22 @@ function SubmitterControls({ idea }: { idea: Idea }) {
   const { me, run } = useApp();
   const navigate = useNavigate();
   const canEdit = !editBlocker(me, idea);
+  const canWithdraw = !withdrawBlocker(me, idea);
   const canResubmit = !resubmitBlocker(me, idea);
   const canMakePublic = idea.confidential && !confidentialityBlocker(me, idea, false);
+  const canMakeConfidential = !idea.confidential && !confidentialityBlocker(me, idea, true);
 
-  const hint = canEdit
+  const hint = canWithdraw
     ? 'You can edit or withdraw this idea until the panel starts its review.'
-    : canResubmit
-      ? 'You can improve this idea and resubmit it once.'
-      : idea.stage === 'declined'
-        ? 'This idea has already been resubmitted once.'
-        : null;
+    : canEdit
+      ? 'You can edit this idea until the panel starts its review. A resubmitted idea cannot be withdrawn.'
+      : canResubmit
+        ? 'You can improve this idea and resubmit it once.'
+        : idea.stage === 'declined'
+          ? 'This idea has already been resubmitted once.'
+          : null;
 
-  if (!hint && idea.confidential && !canMakePublic) return null;
+  if (!hint && !canMakePublic && !canMakeConfidential) return null;
 
   return (
     <div className="owner-bar">
@@ -128,23 +139,23 @@ function SubmitterControls({ idea }: { idea: Idea }) {
           </Link>
         )}
         {canEdit && (
-          <>
-            <Link className="button small" to={`/ideas/${idea.id}/edit`}>
-              Edit
-            </Link>
-            <button
-              type="button"
-              className="button small"
-              onClick={() => {
-                if (!window.confirm('Withdraw this idea? It will be removed from the pipeline.')) return;
-                if (run((s) => actions.withdrawIdea(s, me.id, idea.id), 'Your idea has been withdrawn.')) navigate('/mine');
-              }}
-            >
-              Withdraw
-            </button>
-          </>
+          <Link className="button small" to={`/ideas/${idea.id}/edit`}>
+            Edit
+          </Link>
         )}
-        {!idea.confidential && (
+        {canWithdraw && (
+          <button
+            type="button"
+            className="button small"
+            onClick={() => {
+              if (!window.confirm('Withdraw this idea? It will be removed from the pipeline.')) return;
+              if (run((s) => actions.withdrawIdea(s, me.id, idea.id), 'Your idea has been withdrawn.')) navigate('/mine');
+            }}
+          >
+            Withdraw
+          </button>
+        )}
+        {canMakeConfidential && (
           <button
             type="button"
             className="button small"
@@ -176,11 +187,12 @@ function SubmitterControls({ idea }: { idea: Idea }) {
 
 function entryTitle(d: Decision): string {
   if (d.kind === 'reassignment') return 'Pilot owner changed';
-  return d.from === d.to ? `Kept ${STAGE_LABEL[d.to].toLowerCase()}` : `Moved to ${STAGE_LABEL[d.to]}`;
+  return `Moved from ${STAGE_LABEL[d.from]} to ${STAGE_LABEL[d.to]}`;
 }
 
+/** The decision history: who recorded each change, when, the old and new stage, and why (PRD M7.7). */
 function Timeline({ idea }: { idea: Idea }) {
-  const { state, me } = useApp();
+  const { state } = useApp();
   const status = pilotStatus(idea);
   return (
     <ol className="timeline">
@@ -193,7 +205,7 @@ function Timeline({ idea }: { idea: Idea }) {
           <strong>{entryTitle(d)}</strong>
           <span className="hint">{fmtDate(d.at)}</span>
           <p className="reason">{d.reason}</p>
-          {me.isReviewer && <span className="hint">Recorded for the panel by {nameOf(state, d.recordedById)}</span>}
+          <span className="hint">Recorded for the panel by {nameOf(state, d.recordedById)}</span>
         </li>
       ))}
       {idea.resubmissions > 0 && idea.stage === 'submitted' && (
@@ -212,18 +224,21 @@ function Timeline({ idea }: { idea: Idea }) {
   );
 }
 
-function ScoreTable({ scores, named }: { scores: Score[]; named: boolean }) {
-  const { state } = useApp();
+/** Scores and feedback never show reviewer names; a reviewer sees their own row as "You". */
+function ScoreTable({ scores }: { scores: Score[] }) {
+  const { me } = useApp();
   const avg = averageScores(scores);
   if (!avg) return <p className="hint">No scores have been entered yet.</p>;
   const notes = scores.filter((s) => s.note);
+  let others = 0;
+  const rowLabel = (s: Score) => (s.reviewerId === me.id ? 'You' : `Reviewer ${++others}`);
   return (
     <>
       <div className="scroll-x">
         <table className="data">
           <thead>
             <tr>
-              <th scope="col">{named ? 'Reviewer' : ''}</th>
+              <th scope="col"></th>
               {CRITERIA.map((c) => (
                 <th scope="col" key={c.key} className="num">
                   {c.label}
@@ -232,9 +247,9 @@ function ScoreTable({ scores, named }: { scores: Score[]; named: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {scores.map((s, n) => (
+            {scores.map((s) => (
               <tr key={s.reviewerId}>
-                <th scope="row">{named ? nameOf(state, s.reviewerId) : `Reviewer ${n + 1}`}</th>
+                <th scope="row">{rowLabel(s)}</th>
                 {CRITERIA.map((c) => (
                   <td key={c.key} className="num">
                     {s[c.key]}
@@ -260,7 +275,6 @@ function ScoreTable({ scores, named }: { scores: Score[]; named: boolean }) {
             {notes.map((s) => (
               <li key={s.reviewerId}>
                 {s.note}
-                {named && <span className="hint"> {nameOf(state, s.reviewerId)}</span>}
               </li>
             ))}
           </ul>
@@ -272,10 +286,9 @@ function ScoreTable({ scores, named }: { scores: Score[]; named: boolean }) {
 
 function ScoreSection({ idea }: { idea: Idea }) {
   const { me } = useApp();
-  const view = scoreView(me, idea);
   const avg = averageScores(idea.scores);
   // Nothing to show until someone has scored. Reviewers who still need to score see that in their own panel card.
-  if (!avg || view === 'hidden') return null;
+  if (!avg || !canSeeScores(me, idea)) return null;
 
   return (
     <section className="card">
@@ -294,7 +307,7 @@ function ScoreSection({ idea }: { idea: Idea }) {
       </p>
       <details>
         <summary>Individual scores and feedback</summary>
-        <ScoreTable scores={idea.scores} named={view === 'named'} />
+        <ScoreTable scores={idea.scores} />
       </details>
     </section>
   );
@@ -308,7 +321,7 @@ function PilotSection({ idea }: { idea: Idea }) {
   if (!idea.pilotOwnerId) return null;
 
   // The panel's expectations are hidden from a reviewer who has not scored yet, like the scores themselves.
-  const expected = scoreView(me, idea) === 'hidden' ? null : averageScores(idea.scores);
+  const expected = canSeeScores(me, idea) ? averageScores(idea.scores) : null;
   const result = idea.pilotResult;
   const canSubmit = !pilotResultBlocker(me, idea);
 
@@ -417,13 +430,13 @@ function PanelActions({ idea }: { idea: Idea }) {
   const own = isSubmitter(me, idea);
   const others = idea.scores.filter((s) => s.reviewerId !== me.id).length;
   const options = TRANSITIONS[idea.stage];
-  const label = (s: Stage) => (s === idea.stage ? `Keep ${STAGE_LABEL[s].toLowerCase()}` : `Move to ${STAGE_LABEL[s]}`);
+  const label = (s: Stage) => `Move to ${STAGE_LABEL[s]}`;
 
   // Only show what this reviewer can act on now. A blocked step appears as one line, or not at all.
   const notes = [
-    own && scoreBlock,
+    own && "You submitted this idea, so you cannot score it or record the panel's decision on it.",
     !scoreBlock && !myScore && others > 0 && `${plural(others, 'reviewer')} ${others === 1 ? 'has' : 'have'} scored. You will see their scores once you have saved yours.`,
-    idea.stage === 'piloting' && decisionBlock,
+    !own && idea.stage === 'piloting' && decisionBlock,
   ].filter(Boolean) as string[];
 
   if (scoreBlock && decisionBlock && !canReassign && notes.length === 0) return null;
@@ -441,7 +454,7 @@ function PanelActions({ idea }: { idea: Idea }) {
     if (!to || !reason.trim() || (to === 'piloting' && !ownerId)) return;
     const ok = run(
       (s) => actions.recordDecision(s, me.id, idea.id, to, reason, ownerId || undefined),
-      to === idea.stage ? 'The panel decision has been recorded.' : 'The panel decision has been recorded and the submitter has been notified.',
+      'The panel decision has been recorded and the submitter has been notified.',
     );
     if (ok) {
       setTo('');
@@ -466,12 +479,14 @@ function PanelActions({ idea }: { idea: Idea }) {
     }
   }
 
+  // On an anonymous idea the submitter is listed like anyone else, so choosing them as pilot
+  // owner reveals nothing (PRD M8.11, D43).
   const colleagueOptions = (exceptId?: string) =>
     state.colleagues
       .filter((c) => c.id !== exceptId)
       .map((c) => (
         <option key={c.id} value={c.id}>
-          {c.name} ({c.office}){c.id === idea.submitterId ? ', submitter' : ''}
+          {c.name} ({c.office}){c.id === idea.submitterId && !idea.anonymous ? ', submitter' : ''}
         </option>
       ));
 
@@ -498,7 +513,7 @@ function PanelActions({ idea }: { idea: Idea }) {
             <RatingFields values={ratings} onChange={setRatings} idPrefix="score" showErrors={scoreTried} />
             <div className="field">
               <label htmlFor="score-note">Feedback (optional)</label>
-              <span className="hint">Shown on the idea without your name.</span>
+              <span className="hint">Your scores and feedback are shown without your name.</span>
               <textarea id="score-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
             <button type="submit" className="button primary">
@@ -577,7 +592,6 @@ function PanelActions({ idea }: { idea: Idea }) {
 }
 
 function PreviousVersions({ idea }: { idea: Idea }) {
-  const { me } = useApp();
   return (
     <section className="card">
       <h2>Earlier version of this idea</h2>
@@ -594,8 +608,11 @@ function PreviousVersions({ idea }: { idea: Idea }) {
           <p className="prose">{v.content.solution}</p>
           <h3>Expected impact</h3>
           <p className="prose">{v.content.expectedImpact}</p>
+          <p className="hint">
+            {plural(v.votes.length, 'vote')} for this version. Votes do not carry over to a resubmission.
+          </p>
           <h3>Scores at the time</h3>
-          <ScoreTable scores={v.scores} named={me.isReviewer && !isSubmitter(me, idea)} />
+          <ScoreTable scores={v.scores} />
         </details>
       ))}
     </section>
@@ -643,8 +660,14 @@ function Comments({ idea }: { idea: Idea }) {
           return (
             <li key={c.id}>
               <p className="comment-head">
-                <strong>{nameOf(state, c.authorId)}</strong>
-                {c.authorId === idea.submitterId && <span className="badge">Submitter</span>}
+                {writesAnonymously(c.authorId, idea) ? (
+                  <strong>{c.authorId === me.id ? 'You, anonymously' : ANONYMOUS_SUBMITTER}</strong>
+                ) : (
+                  <>
+                    <strong>{nameOf(state, c.authorId)}</strong>
+                    {c.authorId === idea.submitterId && <span className="badge">Submitter</span>}
+                  </>
+                )}
                 <span className="hint">
                   {fmtDate(c.at)}
                   {c.editedAt && ' (edited)'}

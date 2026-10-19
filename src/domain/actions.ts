@@ -1,7 +1,11 @@
 import type { AppState, Colleague, CriterionKey, Idea, IdeaContent, Stage } from './types';
 import {
+  ANONYMOUS_SUBMITTER,
   CRITERIA,
   STAGE_LABEL,
+  panelCompositionProblem,
+  TEXT_MAX,
+  TITLE_MAX,
   adminRemoveCommentBlocker,
   canAdminister,
   canViewIdea,
@@ -15,6 +19,8 @@ import {
   resubmitBlocker,
   scoreBlocker,
   voteBlocker,
+  withdrawBlocker,
+  writesAnonymously,
 } from './rules';
 
 /**
@@ -77,7 +83,12 @@ function cleanContent(state: AppState, content: IdeaContent): IdeaContent {
   };
   const missing = FIELD_LABELS.filter(([key]) => !out[key]).map(([, label]) => label);
   if (missing.length) fail(`Please complete: ${missing.join(', ')}.`);
-  if (!state.categories.some((k) => k.id === out.categoryId && k.active))
+  const tooLong = FIELD_LABELS.filter(([key]) => key !== 'categoryId' && out[key].length > (key === 'title' ? TITLE_MAX : TEXT_MAX));
+  if (tooLong.length)
+    fail(
+      `Nothing was saved. The title can be up to ${TITLE_MAX} characters and the other fields up to ${TEXT_MAX.toLocaleString('en-GB')}. Please shorten: ${tooLong.map(([, label]) => label).join(', ')}.`,
+    );
+  if (!state.categories.some((k) => k.id === out.categoryId))
     fail('Please choose a category from the list.');
   return out;
 }
@@ -101,6 +112,7 @@ export function submitIdea(
   actorId: string,
   content: IdeaContent,
   confidential: boolean,
+  anonymous = false,
   at = nowIso(),
 ): { state: AppState; ideaId: string } {
   const me = actor(state, actorId);
@@ -108,6 +120,7 @@ export function submitIdea(
     ...cleanContent(state, content),
     id: `idea-${uid()}`,
     confidential,
+    anonymous,
     submitterId: me.id,
     office: me.office,
     stage: 'submitted',
@@ -134,7 +147,7 @@ export function editIdea(state: AppState, actorId: string, ideaId: string, conte
 export function withdrawIdea(state: AppState, actorId: string, ideaId: string): AppState {
   const me = actor(state, actorId);
   const idea = ideaFor(state, me, ideaId);
-  check(editBlocker(me, idea));
+  check(withdrawBlocker(me, idea));
   return {
     ...state,
     ideas: state.ideas.filter((i) => i.id !== ideaId),
@@ -155,6 +168,7 @@ export function resubmitIdea(state: AppState, actorId: string, ideaId: string, c
     stageEnteredAt: at,
     resubmissions: i.resubmissions + 1,
     scores: [],
+    votes: [],
     pilotOwnerId: undefined,
     pilotResult: undefined,
     previousVersions: [
@@ -168,6 +182,7 @@ export function resubmitIdea(state: AppState, actorId: string, ideaId: string, c
           expectedImpact: i.expectedImpact,
         },
         scores: i.scores,
+        votes: i.votes,
         declineReason: lastDecline?.reason ?? '',
         declinedAt: lastDecline?.at ?? i.stageEnteredAt,
       },
@@ -213,7 +228,8 @@ export function addComment(state: AppState, actorId: string, ideaId: string, tex
     const colleague = state.colleagues.find((c) => c.id === id);
     return colleague && canViewIdea(colleague, idea);
   });
-  return notify(next, involved, ideaId, `${me.name} commented on "${idea.title}".`, at, me.id);
+  const author = writesAnonymously(me.id, idea) ? ANONYMOUS_SUBMITTER : me.name;
+  return notify(next, involved, ideaId, `${author} commented on "${idea.title}".`, at, me.id);
 }
 
 export function editComment(state: AppState, actorId: string, ideaId: string, commentId: string, text: string, at = nowIso()): AppState {
@@ -292,25 +308,22 @@ export function recordDecision(
     if (!owner) fail('Please choose a pilot owner before moving this idea to Piloting.');
   }
 
-  const kept = to === idea.stage;
   let next = patch(state, ideaId, (i) => ({
     ...i,
     stage: to,
-    stageEnteredAt: kept ? i.stageEnteredAt : at,
+    stageEnteredAt: at,
     pilotOwnerId: owner ? owner.id : i.pilotOwnerId,
     decisions: [...i.decisions, { id: uid(), from: i.stage, to, reason: why, recordedById: me.id, at }],
   }));
 
-  // Stage-change notifications are only sent when the stage actually changes (PRD S2.3).
-  if (!kept)
-    next = notify(
-      next,
-      [idea.submitterId],
-      ideaId,
-      `"${idea.title}" has moved to ${STAGE_LABEL[to]}. You can read the panel's reason on the idea.`,
-      at,
-      me.id,
-    );
+  next = notify(
+    next,
+    [idea.submitterId],
+    ideaId,
+    `"${idea.title}" has moved to ${STAGE_LABEL[to]}. You can read the panel's reason on the idea.`,
+    at,
+    me.id,
+  );
 
   if (owner) {
     const access = idea.confidential ? ' This idea is confidential and you now have access to it.' : '';
@@ -357,7 +370,11 @@ export function reassignPilot(
     ],
   }));
   const access = idea.confidential ? ' This idea is confidential and you now have access to it.' : '';
-  return notify(next, [owner.id], ideaId, `You have been assigned as pilot owner for "${idea.title}".${access}`, at, me.id);
+  const assigned = notify(next, [owner.id], ideaId, `You have been assigned as pilot owner for "${idea.title}".${access}`, at, me.id);
+  // The previous owner is told they are no longer responsible (PRD S4.3).
+  return idea.pilotOwnerId
+    ? notify(assigned, [idea.pilotOwnerId], ideaId, `You are no longer the pilot owner for "${idea.title}".`, at, me.id)
+    : assigned;
 }
 
 // ---- Pilot owner ----------------------------------------------------------
@@ -410,7 +427,7 @@ function categoryName(state: AppState, name: string, exceptId?: string): string 
 export function addCategory(state: AppState, actorId: string, name: string): AppState {
   admin(state, actorId);
   const cleaned = categoryName(state, name);
-  return { ...state, categories: [...state.categories, { id: `cat-${uid()}`, name: cleaned, active: true }] };
+  return { ...state, categories: [...state.categories, { id: `cat-${uid()}`, name: cleaned }] };
 }
 
 export function renameCategory(state: AppState, actorId: string, categoryId: string, name: string): AppState {
@@ -419,17 +436,27 @@ export function renameCategory(state: AppState, actorId: string, categoryId: str
   return { ...state, categories: state.categories.map((k) => (k.id === categoryId ? { ...k, name: cleaned } : k)) };
 }
 
-/** Retired categories stay on existing ideas but cannot be chosen for new ones. */
-export function setCategoryActive(state: AppState, actorId: string, categoryId: string, active: boolean): AppState {
+/**
+ * Swaps one panel member for another in a single step, so the panel never has five or seven
+ * members (PRD M10.7, M10.11). The swap is refused if it would break the office mix (M10.12).
+ * The outgoing reviewer's earlier scores stay on record; their reviewer access ends at once.
+ */
+export function replaceReviewer(state: AppState, actorId: string, outgoingId: string, incomingId: string): AppState {
   admin(state, actorId);
-  if (!active && state.categories.filter((k) => k.active && k.id !== categoryId).length === 0)
-    fail('At least one category must stay available.');
-  return { ...state, categories: state.categories.map((k) => (k.id === categoryId ? { ...k, active } : k)) };
-}
-
-export function setReviewer(state: AppState, actorId: string, colleagueId: string, isReviewer: boolean): AppState {
-  admin(state, actorId);
-  return { ...state, colleagues: state.colleagues.map((c) => (c.id === colleagueId ? { ...c, isReviewer } : c)) };
+  const outgoing = actor(state, outgoingId);
+  if (!outgoing.isReviewer) fail(`${outgoing.name} is not on the innovation panel.`);
+  if (outgoing.isAdmin) fail('The chair cannot be replaced.');
+  const incoming = state.colleagues.find((c) => c.id === incomingId) ?? fail('Please choose the new reviewer.');
+  if (incoming.isReviewer) fail(`${incoming.name} is already on the innovation panel.`);
+  const colleagues = state.colleagues.map((c) =>
+    c.id === outgoing.id ? { ...c, isReviewer: false } : c.id === incoming.id ? { ...c, isReviewer: true } : c,
+  );
+  const problem = panelCompositionProblem(colleagues);
+  if (problem) {
+    const hint = incoming.office === outgoing.office ? '' : ` ${outgoing.name} is based in ${outgoing.office}, so the replacement must be too.`;
+    fail(`Nothing was changed. ${problem}${hint}`);
+  }
+  return { ...state, colleagues };
 }
 
 // ---- Notifications --------------------------------------------------------

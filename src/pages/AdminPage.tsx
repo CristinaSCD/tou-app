@@ -1,20 +1,21 @@
 import { useState, type FormEvent } from 'react';
 import * as actions from '../domain/actions';
-import { canAdminister } from '../domain/rules';
+import { PANEL_SIZE, canAdminister } from '../domain/rules';
+import type { Colleague } from '../domain/types';
 import { useApp } from '../store';
 import { FieldError, NoAccess, PageHeader, plural } from '../ui';
 
 export default function AdminPage() {
   const { state, me, run } = useApp();
   const [newCategory, setNewCategory] = useState('');
-  const [addReviewerId, setAddReviewerId] = useState('');
   const [categoryTried, setCategoryTried] = useState(false);
-  const [reviewerTried, setReviewerTried] = useState(false);
+  const [replacingId, setReplacingId] = useState('');
+  const [replacementId, setReplacementId] = useState('');
+  const [replaceTried, setReplaceTried] = useState(false);
 
   if (!canAdminister(me)) return <NoAccess title="Admin">Only the admin can manage categories and reviewers.</NoAccess>;
 
   const reviewers = state.colleagues.filter((c) => c.isReviewer);
-  const others = state.colleagues.filter((c) => !c.isReviewer);
 
   function addCategory(e: FormEvent) {
     e.preventDefault();
@@ -26,14 +27,19 @@ export default function AdminPage() {
     }
   }
 
-  function addReviewer(e: FormEvent) {
+  function startReplacing(id: string) {
+    setReplacingId(id);
+    setReplacementId('');
+    setReplaceTried(false);
+  }
+
+  function replace(e: FormEvent, outgoing: Colleague) {
     e.preventDefault();
-    setReviewerTried(true);
-    if (!addReviewerId) return;
-    if (run((s) => actions.setReviewer(s, me.id, addReviewerId, true), 'The colleague has been added to the innovation panel.')) {
-      setAddReviewerId('');
-      setReviewerTried(false);
-    }
+    setReplaceTried(true);
+    if (!replacementId) return;
+    const incoming = state.colleagues.find((c) => c.id === replacementId)!;
+    const done = `${incoming.name} has replaced ${outgoing.name} on the innovation panel. Scores ${outgoing.name} has already given are kept.`;
+    if (run((s) => actions.replaceReviewer(s, me.id, outgoing.id, replacementId), done)) startReplacing('');
   }
 
   return (
@@ -42,40 +48,26 @@ export default function AdminPage() {
       <div className="grid-2">
         <section className="card">
           <h2>Categories</h2>
-          <p className="hint">Retiring a category keeps it on existing ideas but removes it from the list for new ideas.</p>
+          <p className="hint">Renaming a category updates it on every idea. Categories cannot be removed.</p>
           <ul className="plain rows">
             {state.categories.map((k) => {
               const used = state.ideas.filter((i) => i.categoryId === k.id).length;
               return (
                 <li key={k.id}>
                   <span>
-                    {k.name} {!k.active && <span className="badge">Retired</span>}
+                    {k.name}
                     <span className="hint"> {plural(used, 'idea')}</span>
                   </span>
-                  <span className="row-actions">
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => {
-                        const name = window.prompt('New name for this category', k.name);
-                        if (name !== null) run((s) => actions.renameCategory(s, me.id, k.id, name), 'The category has been renamed.');
-                      }}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() =>
-                        run(
-                          (s) => actions.setCategoryActive(s, me.id, k.id, !k.active),
-                          k.active ? 'The category has been retired.' : 'The category is available again.',
-                        )
-                      }
-                    >
-                      {k.active ? 'Retire' : 'Restore'}
-                    </button>
-                  </span>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => {
+                      const name = window.prompt('New name for this category', k.name);
+                      if (name !== null) run((s) => actions.renameCategory(s, me.id, k.id, name), 'The category has been renamed.');
+                    }}
+                  >
+                    Rename
+                  </button>
                 </li>
               );
             })}
@@ -95,48 +87,54 @@ export default function AdminPage() {
         <section className="card">
           <h2>Innovation panel ({reviewers.length})</h2>
           <p className="hint">
-            Reviewers can see confidential ideas, score ideas they did not submit, and record the panel's decisions.
+            The panel always has {PANEL_SIZE} members: the chair, two based in Bristol, two in Leeds and one in Glasgow. To
+            change it, replace a reviewer with a colleague from the same office. Reviewers can see confidential ideas, score
+            ideas they did not submit, and record the panel's decisions.
           </p>
           <ul className="plain rows">
-            {reviewers.map((c) => (
-              <li key={c.id}>
-                <span>
-                  {c.name} {c.isAdmin && <span className="badge">Chair</span>}
-                  <span className="hint">
-                    {' '}
-                    {c.jobTitle}, {c.office}
+            {reviewers.map((c) => {
+              // Only colleagues from the same office keep the panel's office mix (PRD M10.12).
+              const candidates = state.colleagues.filter((o) => !o.isReviewer && o.office === c.office);
+              return (
+                <li key={c.id} className={replacingId === c.id ? 'replacing' : undefined}>
+                  <span>
+                    {c.name} {c.isAdmin && <span className="badge">Chair</span>}
+                    <span className="hint">
+                      {' '}
+                      {c.jobTitle}, {c.office}
+                    </span>
                   </span>
-                </span>
-                <button
-                  type="button"
-                  className="link"
-                  onClick={() =>
-                    window.confirm(`Remove ${c.name} from the innovation panel? Scores they have already given will be kept.`) &&
-                    run((s) => actions.setReviewer(s, me.id, c.id, false), `${c.name} has been removed from the innovation panel.`)
-                  }
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
+                  {!c.isAdmin && replacingId !== c.id && (
+                    <button type="button" className="link" onClick={() => startReplacing(c.id)}>
+                      Replace
+                    </button>
+                  )}
+                  {replacingId === c.id && (
+                    <form className="inline-form" onSubmit={(e) => replace(e, c)}>
+                      <div className={`field grow ${replaceTried && !replacementId ? 'invalid' : ''}`}>
+                        <label htmlFor="replacement">Replace {c.name} with</label>
+                        <select id="replacement" value={replacementId} onChange={(e) => setReplacementId(e.target.value)}>
+                          <option value="">Choose a colleague based in {c.office}</option>
+                          {candidates.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name} ({o.jobTitle})
+                            </option>
+                          ))}
+                        </select>
+                        <FieldError show={replaceTried && !replacementId}>please choose a colleague.</FieldError>
+                      </div>
+                      <button type="submit" className="button primary">
+                        Replace
+                      </button>
+                      <button type="button" className="button" onClick={() => startReplacing('')}>
+                        Cancel
+                      </button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-          <form className="inline-form" onSubmit={addReviewer}>
-            <div className={`field grow ${reviewerTried && !addReviewerId ? 'invalid' : ''}`}>
-              <label htmlFor="add-reviewer">Add a reviewer</label>
-              <select id="add-reviewer" value={addReviewerId} onChange={(e) => setAddReviewerId(e.target.value)}>
-                <option value="">Choose a colleague</option>
-                {others.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.jobTitle}, {c.office})
-                  </option>
-                ))}
-              </select>
-              <FieldError show={reviewerTried && !addReviewerId}>please choose a colleague.</FieldError>
-            </div>
-            <button type="submit" className="button primary">
-              Add reviewer
-            </button>
-          </form>
         </section>
       </div>
     </>

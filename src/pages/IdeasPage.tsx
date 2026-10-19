@@ -1,7 +1,19 @@
 import { useMemo, useState } from 'react';
 import { OFFICES, STAGES, STAGE_LABEL, visibleIdeas } from '../domain/rules';
 import { useApp } from '../store';
-import { Empty, IdeaCard, nameOf, plural } from '../ui';
+import type { Idea } from '../domain/types';
+import { Empty, IdeaCard, plural } from '../ui';
+
+type Sort = 'newest' | 'oldest' | 'votes';
+
+const newestFirst = (a: Idea, b: Idea) => b.createdAt.localeCompare(a.createdAt);
+
+/** PRD M3.5, M3.6: newest first by default; equal vote counts list the newer idea first. */
+const SORTS: Record<Sort, { label: string; compare: (a: Idea, b: Idea) => number }> = {
+  newest: { label: 'Newest first', compare: newestFirst },
+  oldest: { label: 'Oldest first', compare: (a, b) => -newestFirst(a, b) },
+  votes: { label: 'Most votes', compare: (a, b) => b.votes.length - a.votes.length || newestFirst(a, b) },
+};
 
 export default function IdeasPage() {
   const { state, me } = useApp();
@@ -9,7 +21,7 @@ export default function IdeasPage() {
   const [office, setOffice] = useState('');
   const [category, setCategory] = useState('');
   const [stage, setStage] = useState('');
-  const [sort, setSort] = useState<'votes' | 'newest'>('votes');
+  const [sort, setSort] = useState<Sort>('newest');
 
   const ideas = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -19,14 +31,10 @@ export default function IdeasPage() {
       .filter((i) => !stage || i.stage === stage)
       .filter((i) => {
         if (words.length === 0) return true;
-        const text = `${i.title} ${i.problem} ${i.solution} ${i.expectedImpact} ${nameOf(state, i.submitterId)}`.toLowerCase();
+        const text = `${i.title} ${i.problem} ${i.solution}`.toLowerCase();
         return words.every((w) => text.includes(w));
       })
-      .sort((a, b) =>
-        sort === 'votes'
-          ? b.votes.length - a.votes.length || b.createdAt.localeCompare(a.createdAt)
-          : b.createdAt.localeCompare(a.createdAt),
-      );
+      .sort(SORTS[sort].compare);
   }, [state, me, query, office, category, stage, sort]);
 
   const filtered = Boolean(query || office || category || stage);
@@ -67,9 +75,12 @@ export default function IdeasPage() {
               </option>
             ))}
           </select>
-          <select aria-label="Sort by" value={sort} onChange={(e) => setSort(e.target.value as 'votes' | 'newest')} className="sort">
-            <option value="votes">Most backed first</option>
-            <option value="newest">Newest first</option>
+          <select aria-label="Sort by" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="sort">
+            {(Object.keys(SORTS) as Sort[]).map((key) => (
+              <option key={key} value={key}>
+                {SORTS[key].label}
+              </option>
+            ))}
           </select>
         </div>
       </form>

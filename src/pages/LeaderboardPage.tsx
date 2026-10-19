@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { leaderboard, quarterStart } from '../domain/rules';
 import { useApp } from '../store';
-import { Empty, PageHeader, IdeaStage, categoryOf, fmtDate, nameOf, plural } from '../ui';
+import { Empty, PageHeader, IdeaStage, categoryOf, fmtDate, plural, submitterLabel } from '../ui';
 
 export default function LeaderboardPage() {
-  const { state } = useApp();
+  const { state, me } = useApp();
   const now = new Date();
   const rows = leaderboard(state, now);
   const quarter = `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`;
@@ -40,7 +40,7 @@ export default function LeaderboardPage() {
                   <td className="num">{n + 1}</td>
                   <th scope="row">
                     <Link to={`/ideas/${idea.id}`}>{idea.title}</Link>
-                    <div className="hint">{nameOf(state, idea.submitterId)}</div>
+                    <div className="hint">{submitterLabel(state, me, idea)}</div>
                   </th>
                   <td>{categoryOf(state, idea.categoryId)}</td>
                   <td>{idea.office}</td>
