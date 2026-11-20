@@ -278,6 +278,19 @@ fieldset.group legend { font-weight: 650; padding: 0 .35rem; }
 .tab { border: 0; background: none; padding: .55rem .9rem; font-weight: 600; cursor: pointer; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -1.5px; min-height: 42px; }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 .composer.internal textarea { background: var(--note); border-style: dashed; }
+.comp-attach { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; }
+.comp-attach label.btn { cursor: pointer; }
+.comp-attach:has(input:focus-visible) label.btn, .drop:has(#file-in:focus-visible) label.btn { outline: 3px solid var(--ink); outline-offset: 2px; }
+.comp-files { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+.comp-files li { display: flex; align-items: center; gap: .5rem; border: 1px solid var(--line); border-radius: var(--r); padding: .3rem .3rem .3rem .4rem; background: var(--surface); min-width: 0; max-width: 100%; }
+.comp-files .thumb { width: 32px; height: 32px; font-size: .58rem; }
+.act-files { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+.act-files li { display: flex; align-items: center; gap: .55rem; border: 1px solid var(--line); border-radius: var(--r); padding: .35rem .6rem .35rem .4rem; background: var(--surface); font-size: .88rem; min-width: 0; max-width: 100%; }
+.act-files .thumb { width: 36px; height: 36px; font-size: .6rem; }
+.act-files small { display: block; color: var(--muted); }
+.reopen-note { font-size: .9rem; color: var(--ink-2); display: flex; gap: .4rem; align-items: center; }
+.reopen-note::before { content: "i"; flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid currentColor; font-size: .68rem; font-weight: 700; font-style: italic; }
+.tag-should { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border: 1px dashed var(--ink-2); border-radius: 3px; padding: .05rem .3rem; margin-left: .4rem; color: var(--ink-2); vertical-align: 1px; }
 .composer-foot { display: flex; justify-content: space-between; align-items: center; gap: .5rem 1rem; flex-wrap: wrap; }
 .att-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
 .att { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: .65rem; align-items: center; }
@@ -414,7 +427,7 @@ en: {
   markQ: 'Mark as question', markQHint: 'The client sees it under Needs Action until they respond.',
   qPosted: 'Question posted. The client sees it under Needs Action.', notePosted: 'Internal note saved.',
   statusChanged: 'Status changed to {status}', explanation: 'Explanation for the client', original: 'Original report',
-  dupOf: 'Duplicate of', na_client: 'A Reviewer asked a question. Respond so the review can continue.', goQ: 'Go to question', goResp: 'Go to response', goComment: 'Go to comment', nav_contracts: 'Contracts', nav_templates: 'Templates', unreadSr: 'Unread:',
+  dupOf: 'Duplicate of', na_client: 'A Reviewer asked a question. Respond so the review can continue.', attachFiles: 'Attach files', reopenToAsk: 'Reopen this report to ask a question.', priority: 'Priority:', goQ: 'Go to question', goResp: 'Go to response', goComment: 'Go to comment', nav_contracts: 'Contracts', nav_templates: 'Templates', unreadSr: 'Unread:',
   na_rev_resp: '{name} responded to your question.', na_rev_new: 'New report. Set a status to start the review.',
   na_rev_comment: '{name} added a comment.', setStatusTitle: 'Set status to “{status}”',
   explHint: 'The client sees this text. Say what changed or why the report is closed.',
@@ -498,7 +511,7 @@ de: {
   markQ: 'Als Frage markieren', markQHint: 'Der Kunde sieht sie unter „Aktion nötig“, bis er antwortet.',
   qPosted: 'Frage gepostet. Der Kunde sieht sie unter „Aktion nötig“.', notePosted: 'Interne Notiz gespeichert.',
   statusChanged: 'Status geändert zu {status}', explanation: 'Erklärung für den Kunden', original: 'Ursprüngliche Meldung',
-  dupOf: 'Duplikat von', na_client: 'Eine Reviewer:in hat eine Frage gestellt. Antworten Sie, damit die Prüfung weitergeht.', goQ: 'Zur Frage', goResp: 'Zur Antwort', goComment: 'Zum Kommentar', nav_contracts: 'Verträge', nav_templates: 'Vorlagen', unreadSr: 'Ungelesen:',
+  dupOf: 'Duplikat von', na_client: 'Eine Reviewer:in hat eine Frage gestellt. Antworten Sie, damit die Prüfung weitergeht.', attachFiles: 'Dateien anhängen', reopenToAsk: 'Öffnen Sie diese Meldung wieder, um eine Frage zu stellen.', priority: 'Priorität:', goQ: 'Zur Frage', goResp: 'Zur Antwort', goComment: 'Zum Kommentar', nav_contracts: 'Verträge', nav_templates: 'Vorlagen', unreadSr: 'Ungelesen:',
   na_rev_resp: '{name} hat auf Ihre Frage geantwortet.', na_rev_new: 'Neue Meldung. Setzen Sie einen Status, um die Prüfung zu starten.',
   na_rev_comment: '{name} hat einen Kommentar hinzugefügt.', setStatusTitle: 'Status auf „{status}“ setzen',
   explHint: 'Der Kunde sieht diesen Text. Erklären Sie, was sich geändert hat oder warum die Meldung geschlossen wird.',
@@ -527,6 +540,7 @@ const JOURNEYS = {
     { id: 'C2', title: 'C2. Send with empty optional fields', steps: ['Title and Description are filled in. Press Submit report: the “Before you send” panel lists the empty fields with hints.'] },
     { id: 'C3', title: 'C3. Colleague, read only', steps: ['You are Lena S. (Colleague) on SUP-1048: no comment box, no Respond button, confidential file hidden.'] },
     { id: 'C4', title: 'C4. Closing without an explanation', steps: ['You are the Reviewer on SUP-1045. Choose Resolved in the status menu and press Save without writing anything.'] },
+    { id: 'C5', title: 'C5. Closed report', steps: ['You are the Reviewer on SUP-1041 (Not a bug, Bluebird Contracts). The composer shows “Reopen this report to ask a question.” instead of Mark as question. You can still attach files to a public comment.'] },
   ],
   de: [
     { id: 'A', title: 'A. Meldung mit Chat-Hilfe erstellen', steps: [
@@ -544,6 +558,7 @@ const JOURNEYS = {
     { id: 'C2', title: 'C2. Mit leeren optionalen Feldern senden', steps: ['Titel und Beschreibung sind ausgefüllt. Klicken Sie Meldung absenden: „Bevor Sie senden“ listet die leeren Felder mit Hinweisen.'] },
     { id: 'C3', title: 'C3. Kolleg:in, nur lesen', steps: ['Sie sind Lena S. (Kolleg:in) in SUP-1048: kein Kommentarfeld, kein Antworten-Button, vertrauliche Datei ausgeblendet.'] },
     { id: 'C4', title: 'C4. Ohne Erklärung abschließen', steps: ['Sie sind Reviewer:in in SUP-1045. Wählen Sie im Statusmenü „Gelöst“ und klicken Sie Speichern, ohne etwas zu schreiben.'] },
+    { id: 'C5', title: 'C5. Abgeschlossene Meldung', steps: ['Sie sind Reviewer:in in SUP-1041 (Kein Fehler, Bluebird Contracts). Statt „Als Frage markieren“ steht im Eingabebereich „Öffnen Sie diese Meldung wieder, um eine Frage zu stellen.“ Dateien können Sie weiterhin an öffentliche Kommentare anhängen.'] },
   ]
 };
 
@@ -596,7 +611,8 @@ function seedReports() {
                     { name: 'contract-sample-p21.pdf', kind: 'pdf', size: 1320000, confidential: true }],
       history: [{ status: 'submitted', at: '2026-11-12T09:14', by: 'anna' }, { status: 'investigating', at: '2026-11-13T08:40', by: 'sam' }],
       activity: [{ id: 'a1', type: 'comment', author: 'sam', at: '2026-11-13T08:41',
-        text: { en: 'Thanks, Anna. We can see the problem with contracts over 20 pages and are looking into it.', de: 'Danke, Anna. Wir sehen das Problem bei Verträgen über 20 Seiten und prüfen es.' } }] },
+        text: { en: 'Thanks, Anna. We can see the problem with contracts over 20 pages and are looking into it. The attached screenshot shows where the export stops in our test contract.', de: 'Danke, Anna. Wir sehen das Problem bei Verträgen über 20 Seiten und prüfen es. Der Screenshot im Anhang zeigt, wo der Export in unserem Testvertrag abbricht.' },
+        files: [{ name: 'test-contract-export-p20.png', kind: 'image', size: 156000 }] }] },
     { id: 'SUP-1045', title: 'Signature field moves after reopening a contract', company: 'nw', submitter: 'marc', created: '2026-11-05T14:02', status: 'planning', lang: 'en',
       fields: {
         desc: { en: 'After I save and reopen a contract, the signature field jumps to the top of the page.',
@@ -624,6 +640,20 @@ function seedReports() {
         { id: 'a5', type: 'question', author: 'sam', at: '2026-11-03T09:00', open: false, text: { en: 'Could you send us a copy of the file without client data?', de: 'Können Sie uns eine Kopie der Datei ohne Mandantendaten schicken?' } },
         { id: 'a6', type: 'response', author: 'piet', at: '2026-11-04T10:12', replyTo: 'a5', text: { en: 'I attached a cleaned copy (template-clean.docx).', de: 'Ich habe eine bereinigte Kopie angehängt (template-clean.docx).' } },
         { id: 'a7', type: 'comment', author: 'sam', at: '2026-11-07T13:11', text: { en: 'Thanks, we found the cause. A fix is being built.', de: 'Danke, wir haben die Ursache gefunden. Ein Fix wird gebaut.' } }] },
+    { id: 'SUP-1041', title: 'Deleted templates still show in the template picker', company: 'bb', submitter: 'piet', created: '2026-10-28T13:25', status: 'not_a_bug', lang: 'en',
+      fields: {
+        desc: { en: 'I deleted three old templates, but they still appear when I start a new contract from a template.',
+                de: 'Ich habe drei alte Vorlagen gelöscht, sie erscheinen aber weiterhin, wenn ich einen neuen Vertrag aus einer Vorlage erstelle.' },
+        steps: { en: '1. Delete a template under Templates\n2. Click New contract › From template\n3. Look at the list of templates',
+                 de: '1. Unter Vorlagen eine Vorlage löschen\n2. Neuer Vertrag › Aus Vorlage klicken\n3. Die Liste der Vorlagen ansehen' },
+        expected: { en: 'Deleted templates no longer appear.', de: 'Gelöschte Vorlagen erscheinen nicht mehr.' } },
+      tech: { device: 'Windows laptop', browser: 'Edge 131', version: '4.12.3' },
+      attachments: [{ name: 'template-picker.png', kind: 'image', size: 198000, confidential: false }],
+      history: [{ status: 'submitted', at: '2026-10-28T13:25', by: 'piet' }, { status: 'investigating', at: '2026-10-29T09:05', by: 'sam' }, { status: 'not_a_bug', at: '2026-10-30T15:40', by: 'sam' }],
+      resolution: { status: 'not_a_bug', text: { en: 'Deleted templates stay in the picker under “Recently deleted” for 30 days so they can be restored. After that they are removed automatically. An Account Admin can empty the list under Settings › Templates.', de: 'Gelöschte Vorlagen bleiben 30 Tage unter „Zuletzt gelöscht“ in der Auswahl, damit man sie wiederherstellen kann. Danach werden sie automatisch entfernt. Account-Admins können die Liste unter Einstellungen › Vorlagen leeren.' } },
+      activity: [
+        { id: 'a10', type: 'comment', author: 'sam', at: '2026-10-29T09:06', text: { en: 'Thanks, Piet. We are checking whether these are the deleted templates or copies of them.', de: 'Danke, Piet. Wir prüfen, ob das die gelöschten Vorlagen oder Kopien davon sind.' } },
+        { id: 'a11', type: 'status', author: 'sam', at: '2026-10-30T15:40', status: 'not_a_bug', text: { en: 'Deleted templates stay in the picker under “Recently deleted” for 30 days so they can be restored. After that they are removed automatically. An Account Admin can empty the list under Settings › Templates.', de: 'Gelöschte Vorlagen bleiben 30 Tage unter „Zuletzt gelöscht“ in der Auswahl, damit man sie wiederherstellen kann. Danach werden sie automatisch entfernt. Account-Admins können die Liste unter Einstellungen › Vorlagen leeren.' } }] },
     { id: 'SUP-1039', title: 'Klauselsuche findet keine Begriffe mit Umlauten', company: 'nw', submitter: 'anna', created: '2026-10-21T11:05', status: 'resolved', lang: 'de',
       fields: {
         desc: { de: 'Wenn ich in der Klauselbibliothek nach „Kündigungsfrist“ suche, erscheinen keine Ergebnisse. Mit „Kuendigungsfrist“ findet die Suche die Klausel.',
@@ -655,6 +685,7 @@ function seedNotifs() {
   ];
 }
 const newDraft = () => ({ title: '', desc: '', steps: '', expected: '', device: '', browser: '', version: '', files: [], ai: {}, touched: {}, errors: {}, fileErr: '' });
+const newComposer = () => ({ tab: 'public', text: '', question: false, err: '', files: [], fileErr: '' });
 const newChat = () => ({ messages: [{ from: 'ai', key: 'chatHello' }], step: 'describe', typing: false, input: '', collapsed: false });
 
 let state;
@@ -665,7 +696,7 @@ function initState(keep) {
     view: 'list', reportId: null, listMode: 'all', search: '', followUp: false,
     reports: seedReports(), notifs: seedNotifs(), nextNum: 1051, clock: new Date('2026-11-17T09:30').getTime(),
     draft: newDraft(), chat: newChat(), menu: null, modal: null, translate: {},
-    composer: { tab: 'public', text: '', question: false, err: '' }, comment: '', commentErr: '',
+    composer: newComposer(), comment: '', commentErr: '',
     respondTo: null, respondText: '', respondErr: '', lastSubmitted: null, uid: 100,
   });
 }
@@ -1043,7 +1074,7 @@ function viewReport() {
         <section aria-labelledby="act-h">
           <div class="section-head"><h2 id="act-h">${esc(t('activity'))}</h2></div>
           ${acts.length ? `<ol class="acts">${acts.map(a => actItem(r, a)).join('')}</ol>` : `<p class="muted">${esc(t('noActivity'))}</p>`}
-          <div style="margin-top:1rem">${rev ? composer() : canAct() ? commentBox() : ''}</div>
+          <div style="margin-top:1rem">${rev ? composer(r) : canAct() ? commentBox() : ''}</div>
         </section>
       </div>
       <aside class="detail-side">
@@ -1073,6 +1104,10 @@ function actHead(a, extra) {
   const roleName = p.role === 'reviewer' ? t('r_reviewer') : p.role === 'admin' ? t('r_admin') : t('r_submitter');
   return `<div class="act-head">${extra || ''}<b>${esc(p.name)}</b><span class="role-tag">${esc(roleName)}</span><time datetime="${a.at}">${esc(fmtDate(a.at, true))}</time></div>`;
 }
+function actFiles(a) {
+  if (!a.files || !a.files.length) return '';
+  return `<ul class="act-files" aria-label="${esc(t('attachments'))}">${a.files.map(f => `<li>${thumb(f)}<span style="min-width:0"><span class="file-name">${esc(f.name)}</span><small>${esc(fmtSize(f.size))}</small></span></li>`).join('')}</ul>`;
+}
 function actItem(r, a) {
   if (a.type === 'status') {
     return `<li class="act act-status" id="act-${a.id}"><div class="act-head"><b>${esc(t('statusChanged', { status: statusLabel(a.status) }))}</b><span>· ${esc(person(a.author).name)}</span><time datetime="${a.at}">${esc(fmtDate(a.at, true))}</time></div>
@@ -1087,7 +1122,7 @@ function actItem(r, a) {
     const editing = state.respondTo === a.id;
     return `<li class="act act-q ${a.open ? 'open' : ''}" id="q-${a.id}" tabindex="-1">
       ${actHead(a, `<span class="q-label">${esc(t('question'))} <span class="q-state ${a.open ? '' : 'answered'}">${esc(a.open ? t('qOpen') : t('qAnswered'))}</span></span>`)}
-      <p>${esc(actText(a))}</p>
+      <p>${esc(actText(a))}</p>${actFiles(a)}
       ${respondable && !editing ? `<div class="act-actions"><button class="btn btn-secondary btn-sm" id="btn-respond-${a.id}" data-action="respond" data-id="${a.id}">${esc(t('respond'))}</button></div>` : ''}
       ${respondable && editing ? `<form class="respond-box" data-submit="respond" data-id="${a.id}">
         <div class="field ${state.respondErr ? 'has-err' : ''}"><label for="resp-in">${esc(t('yourResponse'))}</label><textarea id="resp-in" rows="3" data-bind="respondText" aria-describedby="resp-msg">${esc(state.respondText)}</textarea>
@@ -1100,9 +1135,9 @@ function actItem(r, a) {
     const qt = q ? actText(q) : '';
     return `<li class="act act-resp" id="act-${a.id}">
       <a href="#q-${a.replyTo}" class="resp-link" data-action="goto" data-target="q-${a.replyTo}">${esc(t('responseTo'))} “${esc(qt.length > 70 ? qt.slice(0, 70) + '…' : qt)}”</a>
-      ${actHead(a)}<p>${esc(actText(a))}</p></li>`;
+      ${actHead(a)}<p>${esc(actText(a))}</p>${actFiles(a)}</li>`;
   }
-  return `<li class="act" id="act-${a.id}">${actHead(a)}<p>${esc(actText(a))}</p></li>`;
+  return `<li class="act" id="act-${a.id}">${actHead(a)}<p>${esc(actText(a))}</p>${actFiles(a)}</li>`;
 }
 function commentBox() {
   return `<form class="panel composer" data-submit="comment">
@@ -1111,19 +1146,30 @@ function commentBox() {
     <p class="msg err" id="comment-msg" ${state.commentErr ? '' : 'hidden'}>${esc(state.commentErr)}</p></div>
     <div class="composer-foot"><span></span><button type="submit" class="btn btn-primary">${esc(t('post'))}</button></div></form>`;
 }
-function composer() {
-  const c = state.composer; const internal = c.tab === 'internal';
+function composer(r) {
+  const c = state.composer; const internal = c.tab === 'internal'; const closed = isClosed(r.status);
   return `<form class="panel composer ${internal ? 'internal' : ''}" data-submit="composer">
     <div class="tabs" role="tablist" aria-label="${esc(t('post'))}">
       <button type="button" role="tab" id="tab-public" class="tab" aria-selected="${!internal}" aria-controls="composer-panel" data-action="composer-tab" data-tab="public" tabindex="${internal ? -1 : 0}">${esc(t('publicC'))}</button>
-      <button type="button" role="tab" id="tab-internal" class="tab" aria-selected="${internal}" aria-controls="composer-panel" data-action="composer-tab" data-tab="internal" tabindex="${internal ? 0 : -1}">${esc(t('internal'))}</button>
+      <button type="button" role="tab" id="tab-internal" class="tab" aria-selected="${internal}" aria-controls="composer-panel" data-action="composer-tab" data-tab="internal" tabindex="${internal ? 0 : -1}">${esc(t('internal'))}<span class="tag-should"><span class="sr">${esc(t('priority'))} </span>Should</span></button>
     </div>
     <div id="composer-panel" role="tabpanel" aria-labelledby="${internal ? 'tab-internal' : 'tab-public'}" class="composer">
       <div class="field ${c.err ? 'has-err' : ''}"><label for="composer-in">${esc(internal ? t('revSees') : t('clientSees'))}</label>
       <textarea id="composer-in" rows="3" data-bind="composer.text" aria-describedby="composer-msg">${esc(c.text)}</textarea>
       <p class="msg err" id="composer-msg" ${c.err ? '' : 'hidden'}>${esc(c.err)}</p></div>
+      ${internal ? '' : `<div class="comp-attach">
+        <label class="btn btn-secondary btn-sm" for="comp-file"><span aria-hidden="true">+</span> ${esc(t('attachFiles'))}</label>
+        <input type="file" id="comp-file" class="sr" multiple data-change="comp-files" accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <span class="muted" style="font-size:.85rem">${esc(t('accepted'))}</span>
+      </div>
+      <p id="comp-file-err" class="msg err" role="alert" ${c.fileErr ? '' : 'hidden'}>${esc(c.fileErr)}</p>
+      ${c.files.length ? `<ul class="comp-files" aria-label="${esc(t('attachments'))}">${c.files.map(f => `<li>${thumb(f)}<span class="file-name">${esc(f.name)}</span><button type="button" class="btn btn-tertiary btn-sm" data-action="comp-remove-file" data-id="${f.id}" aria-label="${esc(t('removeFile', { name: f.name }))}">${esc(t('remove'))}</button></li>`).join('')}</ul>` : ''}
+      <div class="proto-box"><span class="proto-tag">${esc(t('proto'))}</span><span>${esc(t('protoSample'))}</span>
+        <button type="button" class="btn btn-tertiary btn-sm" data-action="comp-sample" data-kind="image">screenshot.png</button>
+        <button type="button" class="btn btn-tertiary btn-sm" data-action="comp-sample" data-kind="pdf">fix-notes.pdf</button>
+        <button type="button" class="btn btn-tertiary btn-sm" data-action="comp-sample" data-kind="video">screen-recording.mp4</button></div>`}
       <div class="composer-foot">
-        ${internal ? `<span class="note-tag">${esc(t('internal'))} · ${esc(t('onlyRev'))}</span>` : `<label class="check" for="markq"><input type="checkbox" id="markq" data-change="markq" ${c.question ? 'checked' : ''} aria-describedby="markq-hint">${esc(t('markQ'))}</label><span class="sr" id="markq-hint">${esc(t('markQHint'))}</span>`}
+        ${internal ? `<span class="note-tag">${esc(t('internal'))} · ${esc(t('onlyRev'))}</span>` : closed ? `<p class="reopen-note">${esc(t('reopenToAsk'))}</p>` : `<label class="check" for="markq"><input type="checkbox" id="markq" data-change="markq" ${c.question ? 'checked' : ''} aria-describedby="markq-hint">${esc(t('markQ'))}</label><span class="sr" id="markq-hint">${esc(t('markQHint'))}</span>`}
         <button type="submit" class="btn btn-primary">${esc(t('post'))}</button>
       </div>
     </div></form>`;
@@ -1228,8 +1274,8 @@ function setRole(role) {
   focusAfter = '#btn-role'; render();
   toast(t('roleNow', { name: p.name, role: t('r_' + role) }));
 }
-function addFiles(list) {
-  const d = state.draft; const bad = [];
+function addFiles(list, target) {
+  const d = target || state.draft; const bad = [];
   Array.from(list).forEach(f => {
     const kind = fileKind(f);
     if (!kind) { bad.push(f.name); return; }
@@ -1237,6 +1283,12 @@ function addFiles(list) {
   });
   d.fileErr = bad.length ? bad.map(n => t('fileErr', { name: n })).join(' ') : '';
   render();
+}
+function compSample(kind) {
+  const c = state.composer;
+  if (kind === 'video') addFiles([{ name: 'screen-recording.mp4', type: 'video/mp4', size: 18400000 }], c);
+  else if (kind === 'pdf') addFiles([{ name: 'fix-notes.pdf', type: 'application/pdf', size: 92000 }], c);
+  else addFiles([{ name: 'screenshot.png', type: 'image/png', size: 212000 }], c);
 }
 function sampleFile(kind) {
   if (kind === 'video') addFiles([{ name: 'screen-recording.mp4', type: 'video/mp4', size: 18400000 }]);
@@ -1288,10 +1340,11 @@ function startJourney(j) {
     if (j === 'C1') { const el = document.getElementById('wrap-files'); if (el) el.scrollIntoView({ block: 'center' }); }
   } else if (j === 'B') {
     state.role = 'reviewer';
-    state.composer = { tab: 'public', question: true, err: '', text: state.lang === 'de' ? 'Passiert das auch, wenn Sie aus der Vertragsliste exportieren?' : 'Does this also happen when you export from the contract list?' };
+    state.composer = { tab: 'public', question: true, err: '', files: [], fileErr: '', text: state.lang === 'de' ? 'Passiert das auch, wenn Sie aus der Vertragsliste exportieren?' : 'Does this also happen when you export from the contract list?' };
     openReport('SUP-1048');
   } else if (j === 'C3') { state.role = 'colleague'; openReport('SUP-1048'); }
   else if (j === 'C4') { state.role = 'reviewer'; openReport('SUP-1045'); }
+  else if (j === 'C5') { state.role = 'reviewer'; state.composer = newComposer(); openReport('SUP-1041'); }
 }
 
 document.addEventListener('click', e => {
@@ -1321,6 +1374,8 @@ document.addEventListener('click', e => {
     // form
     case 'remove-file': state.draft.files = state.draft.files.filter(f => f.id !== el.dataset.id); focusAfter = '#file-in'; render(); break;
     case 'sample-file': sampleFile(el.dataset.kind); break;
+    case 'comp-sample': compSample(el.dataset.kind); break;
+    case 'comp-remove-file': state.composer.files = state.composer.files.filter(f => f.id !== el.dataset.id); focusAfter = '#comp-file'; render(); break;
     case 'toggle-chat': state.chat.collapsed = !state.chat.collapsed; render(); break;
     case 'chat-example': { const s = state.chat.step; state.chat.input = EXAMPLES[state.lang][s] || EXAMPLES[state.lang].done; focusAfter = '#chat-in'; render(); break; }
     case 'sug-edit': state.chat.messages[+el.dataset.i].suggestion.state = 'editing'; focusAfter = `[id^="sug-${el.dataset.i}-"]`; render(); break;
@@ -1379,11 +1434,12 @@ document.addEventListener('submit', e => {
   } else if (kind === 'composer') {
     const c = state.composer; const txt = c.text.trim();
     if (!txt) { c.err = t('errComment'); focusAfter = '#composer-in'; render(); return; }
-    const internal = c.tab === 'internal'; const asQ = !internal && c.question;
-    r.activity.push({ id: uid(), type: internal ? 'note' : asQ ? 'question' : 'comment', author: 'sam', at: now(), text: txt, open: asQ ? true : undefined });
+    const internal = c.tab === 'internal'; const asQ = !internal && c.question && !isClosed(r.status);
+    const files = internal ? [] : c.files.map(f => ({ name: f.name, kind: f.kind, size: f.size, url: f.url }));
+    r.activity.push({ id: uid(), type: internal ? 'note' : asQ ? 'question' : 'comment', author: 'sam', at: now(), text: txt, open: asQ ? true : undefined, files });
     if (asQ) notify(clientAudience(r), { type: 'question', report: r.id, who: 'sam' });
     else if (!internal) notify(clientAudience(r), { type: 'comment', report: r.id, who: 'sam' });
-    state.composer = { tab: c.tab, text: '', question: false, err: '' }; focusAfter = '#composer-in'; render();
+    state.composer = Object.assign(newComposer(), { tab: c.tab, files: internal ? c.files : [] }); focusAfter = '#composer-in'; render();
     toast(internal ? t('notePosted') : asQ ? t('qPosted') : t('posted'));
   }
 });
@@ -1413,6 +1469,7 @@ document.addEventListener('change', e => {
   else if (c === 'mode') { state.listMode = el.value; focusAfter = '#mode-' + el.value; render(); }
   else if (c === 'followup') { state.followUp = el.checked; focusAfter = '#fu'; render(); }
   else if (c === 'files') { addFiles(el.files); el.value = ''; }
+  else if (c === 'comp-files') { addFiles(el.files, state.composer); el.value = ''; focusAfter = '#comp-file'; render(); }
   else if (c === 'conf') { const f = state.draft.files.find(x => x.id === el.dataset.id); if (f) f.confidential = el.checked; }
   else if (c === 'translate') { state.translate[el.dataset.id] = el.value; focusAfter = '#tr-sel'; render(); }
   else if (c === 'markq') state.composer.question = el.checked;
