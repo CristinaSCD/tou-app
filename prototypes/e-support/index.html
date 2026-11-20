@@ -82,20 +82,26 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .proto-spacer { flex: 1; }
 
 /* App bar */
-.appbar { background: var(--surface); border-bottom: 1px solid var(--line); }
-.appbar-inner { display: flex; align-items: center; gap: 1rem; min-height: 60px; }
-.logo { font-weight: 800; font-size: 1.35rem; text-decoration: none; border: 2px solid var(--ink); border-radius: 4px; padding: 0 .4rem; line-height: 1.5; }
-.appnav { display: flex; gap: .25rem; }
-.appnav a { text-decoration: none; padding: .4rem .6rem; border-radius: var(--r); color: var(--ink-2); font-weight: 500; }
-.appnav a[aria-current="page"] { color: var(--ink); font-weight: 650; box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
-.spacer { flex: 1; }
-.iconbtn { position: relative; width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--surface); cursor: pointer; display: inline-grid; place-items: center; }
-.iconbtn svg { width: 20px; height: 20px; }
-.count-badge { position: absolute; top: -4px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px; background: var(--ink); color: var(--surface); font-size: .72rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }
-.me { display: flex; align-items: center; gap: .55rem; }
-.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--note); border: 1px solid var(--line-2); display: grid; place-items: center; font-weight: 700; font-size: .78rem; flex: none; }
-.me-text { display: flex; flex-direction: column; line-height: 1.2; }
-.me-text small { color: var(--muted); font-size: .78rem; }
+.shell { display: flex; align-items: flex-start; min-height: 100vh; }
+.shell-main { flex: 1; min-width: 0; }
+.rail { position: sticky; top: 0; height: 100vh; flex: none; width: calc(72px + env(safe-area-inset-left, 0px)); padding: 14px 0 calc(14px + env(safe-area-inset-bottom, 0px)) env(safe-area-inset-left, 0px); background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 40; }
+.rail-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rail-nav { margin-top: 18px; }
+.rail-bottom { margin-top: auto; }
+.logo { font-weight: 800; font-size: 1.2rem; text-decoration: none; border: 2px solid var(--ink); border-radius: 4px; padding: 0 .35rem; line-height: 1.5; }
+.rail-item { position: relative; width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-2); text-decoration: none; border: 1.5px solid transparent; background: none; cursor: pointer; }
+.rail-item svg { width: 22px; height: 22px; }
+.rail-item:hover { background: var(--sunken); color: var(--ink); }
+.rail-item[aria-current="page"] { background: var(--ink); color: var(--surface); }
+.rail-item.bell { border-color: var(--line-2); border-radius: 50%; }
+.tip { position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: var(--ink); color: var(--surface); font-size: .8rem; font-weight: 600; padding: .3rem .55rem; border-radius: 4px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 60; line-height: 1.3; text-align: left; }
+.tip small { display: block; font-weight: 400; opacity: .85; }
+.rail-item:hover .tip, .rail-item:focus-visible .tip, .me:hover .tip, .me:focus-visible .tip { opacity: 1; }
+.rail-item[aria-expanded="true"] .tip { display: none; }
+.count-badge { position: absolute; top: -5px; right: -7px; min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px; background: var(--ink); color: var(--surface); font-size: .72rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }
+.me { position: relative; border-radius: 50%; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--note); border: 1.5px solid var(--line-2); display: grid; place-items: center; font-weight: 700; font-size: .78rem; flex: none; }
+.popover.rail-pop { left: calc(100% + 10px); top: auto; bottom: 0; }
 
 /* Menus and popovers */
 .menu-wrap { position: relative; display: inline-block; }
@@ -317,6 +323,15 @@ fieldset.group legend { font-weight: 650; padding: 0 .35rem; }
 .journey-head { display: flex; justify-content: space-between; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .success { max-width: 640px; margin: 2rem auto; text-align: center; display: grid; gap: 1rem; justify-items: center; }
 .success-mark { width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--ink); display: grid; place-items: center; font-size: 1.8rem; font-weight: 700; }
+@media (max-width: 640px) {
+  .shell { display: block; }
+  .shell-main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .rail { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; height: auto; flex-direction: row; justify-content: space-between; padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border-right: 0; border-top: 1px solid var(--line); }
+  .rail-group { flex-direction: row; }
+  .rail-nav, .rail-bottom { margin: 0; }
+  .tip { display: none; }
+  .popover.rail-pop { position: fixed; top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); }
+}
 .toast { position: fixed; z-index: 80; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--surface); padding: .65rem 1rem; border-radius: var(--r); font-weight: 600; max-width: calc(100vw - 32px); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 
 @media (max-width: 1000px) {
@@ -332,8 +347,6 @@ fieldset.group legend { font-weight: 650; padding: 0 .35rem; }
   .card { grid-template-columns: minmax(0, 1fr); }
   .card-side { justify-content: flex-start; }
   .tech-grid { grid-template-columns: minmax(0, 1fr); }
-  .me-text { display: none; }
-  .appnav { display: none; }
   .filters .field { max-width: none; }
   .file { grid-template-columns: 44px minmax(0, 1fr); }
   .file-actions { grid-column: 1 / -1; justify-content: flex-start; }
@@ -779,14 +792,31 @@ function viewChrome() {
         <span><b>${esc(t('r_' + r))}</b> · ${esc(p.name)}${p.company ? ', ' + esc(COMPANIES[p.company]) : ''}<small>${esc(t('rd_' + r))}</small></span></button>`; }).join('')}
     </div>` : '';
   const notifs = myNotifs(); const unread = unreadCount();
-  const bellPop = state.menu === 'bell' ? `<div class="popover right" role="dialog" aria-label="${esc(t('updates'))}">
+  const bellPop = state.menu === 'bell' ? `<div class="popover rail-pop" role="dialog" aria-label="${esc(t('updates'))}">
       <div class="pop-head"><h2>${esc(t('updates'))}</h2>${unread ? `<button class="btn btn-tertiary btn-sm" data-action="mark-read">${esc(t('markRead'))}</button>` : ''}</div>
       ${notifs.length ? `<ul class="pop-list">${notifs.map(n => { const r = getReport(n.report); const un = !n.read.includes(meId()); return `<li><button class="notif ${un ? 'unread' : ''}" data-action="open-notif" data-id="${n.id}">
         <span class="dot" aria-hidden="true"></span><span><span class="sr">${un ? esc(t('unreadSr')) + ' ' : ''}</span><b>${esc(notifText(n))}</b><small>${r ? esc(r.title) + ' · ' : ''}${esc(fmtDate(n.at, true))}</small></span></button></li>`; }).join('')}</ul>`
         : `<p class="muted" style="padding:1rem">${esc(t('noUpdates'))}</p>`}
     </div>` : '';
   const home = state.role === 'reviewer' ? t('reviewList') : t('support');
-  return `
+  const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const navItem = (label, icon, action, current) => `<a href="#" class="rail-item" data-action="${action}" aria-label="${esc(label)}" ${current ? 'aria-current="page"' : ''}>${ico(icon)}<span class="tip" aria-hidden="true">${esc(label)}</span></a>`;
+  const rail = `<nav class="rail" aria-label="Main">
+    <a href="#" class="logo" data-action="home" aria-label="E! home">E!</a>
+    <div class="rail-group rail-nav">
+      ${navItem(t('nav_contracts'), '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>', 'noop', false)}
+      ${navItem(t('nav_templates'), '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a2 2 0 0 1 2-2h11"/>', 'noop', false)}
+      ${navItem(home, '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="m5.6 5.6 3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/>', 'home', true)}
+    </div>
+    <div class="rail-group rail-bottom">
+      <div class="menu-wrap">
+        <button id="btn-bell" class="rail-item bell" data-action="toggle-menu" data-menu="bell" aria-expanded="${state.menu === 'bell'}" aria-label="${esc(unread ? t('updatesN', { n: unread }) : t('updates'))}">${ICON_BELL}${unread ? `<span class="count-badge" aria-hidden="true">${unread}</span>` : ''}<span class="tip" aria-hidden="true">${esc(t('updates'))}</span></button>
+        ${bellPop}
+      </div>
+      <div class="me" tabindex="0" role="img" aria-label="${esc(m.name + ', ' + (m.company ? COMPANIES[m.company] : t('eTeam')) + ', ' + t('r_' + state.role))}"><span class="avatar" aria-hidden="true">${esc(initials(m.name))}</span><span class="tip" aria-hidden="true">${esc(m.name)}<small>${esc(m.company ? COMPANIES[m.company] : t('eTeam'))} · ${esc(t('r_' + state.role))}</small></span></div>
+    </div>
+  </nav>`;
+  return { rail, proto: `
   <div class="proto"><div class="wrap proto-inner">
     <span class="proto-tag">${esc(t('proto'))}</span>
     <div class="menu-wrap">
@@ -799,17 +829,7 @@ function viewChrome() {
     <span class="proto-spacer"></span>
     <button id="btn-journeys" class="btn btn-secondary btn-sm" data-action="open-journeys">${esc(t('journeys'))}</button>
     <button id="btn-reset" class="btn btn-tertiary btn-sm" data-action="reset">${esc(t('reset'))}</button>
-  </div></div>
-  <header class="appbar"><div class="wrap appbar-inner">
-    <a href="#" class="logo" data-action="home" aria-label="E! home">E!</a>
-    <nav class="appnav" aria-label="Main"><a href="#" data-action="noop">${esc(t('nav_contracts'))}</a><a href="#" data-action="noop">${esc(t('nav_templates'))}</a><a href="#" data-action="home" aria-current="page">${esc(home)}</a></nav>
-    <span class="spacer"></span>
-    <div class="menu-wrap">
-      <button id="btn-bell" class="iconbtn" data-action="toggle-menu" data-menu="bell" aria-expanded="${state.menu === 'bell'}" aria-label="${esc(unread ? t('updatesN', { n: unread }) : t('updates'))}">${ICON_BELL}${unread ? `<span class="count-badge" aria-hidden="true">${unread}</span>` : ''}</button>
-      ${bellPop}
-    </div>
-    <div class="me"><span class="avatar" aria-hidden="true">${esc(initials(m.name))}</span><span class="me-text"><b>${esc(m.name)}</b><small>${esc(m.company ? COMPANIES[m.company] : t('eTeam'))} · ${esc(t('r_' + state.role))}</small></span></div>
-  </div></header>`;
+  </div></div>` };
 }
 
 /* ---------------- List (Support page / Review list) ---------------- */
@@ -1236,7 +1256,8 @@ function render() {
   else if (state.view === 'report') main = viewReport();
   else if (state.view === 'success') main = viewSuccess();
   else main = viewList();
-  app.innerHTML = viewChrome() + main + viewModal();
+  const ch = viewChrome();
+  app.innerHTML = `<div class="shell">${ch.rail}<div class="shell-main">${ch.proto}${main}</div></div>` + viewModal();
   const nlog = document.getElementById('chat-log');
   if (nlog) nlog.scrollTop = chatScroll ? nlog.scrollHeight : logTop;
   chatScroll = false;
