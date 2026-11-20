@@ -389,7 +389,7 @@ en: {
   attachments: 'Attachments', noPII: 'Don’t upload personal information.', drop: 'Drag files here, or', choose: 'Choose files',
   accepted: 'Images, PDF or Word', fileErr: '“{name}” wasn’t added. You can attach images, PDF and Word files.',
   confidential: 'Confidential', remove: 'Remove', removeFile: 'Remove {name}', protoSample: 'Add a sample file:',
-  submit: 'Submit report', cancel: 'Cancel',
+  submit: 'Send report', sendReminder: 'Before you send, check your text and files for personal information.', cancel: 'Cancel',
   aiHelp: 'AI help', scripted: 'SCRIPTED REPLIES', chatNoPII: 'Don’t paste personal information.',
   chatHello: 'Hi! Tell me in your own words what went wrong, and I’ll suggest text for the form.',
   you: 'You', chatMsg: 'Message to AI help', send: 'Send', example: 'Use example answer', typing: 'AI help is writing…',
@@ -398,7 +398,7 @@ en: {
   ask_steps: 'What did you do just before it happened? List the steps, separated by commas.',
   ask_expected: 'What did you expect to happen instead?',
   ask_tech: 'Which device, browser and E! version do you use? You find the version under Help › About.',
-  done: 'Thanks. The form is ready. Add files if they help, then check everything and press Submit report.',
+  done: 'Thanks. The form is ready. Add files if they help, then check everything and press Send report.',
   generic: 'Thanks. To change a field, edit it directly in the form.',
   piiRemoved: 'I left out something that looks like personal information (an email address or phone number).',
   addToForm: 'Add to form', edit: 'Edit', added: 'Added to form', addedToast: 'Added to the form.',
@@ -473,7 +473,7 @@ de: {
   attachments: 'Anhänge', noPII: 'Laden Sie keine personenbezogenen Daten hoch.', drop: 'Dateien hierher ziehen, oder', choose: 'Dateien auswählen',
   accepted: 'Bilder, PDF oder Word', fileErr: '„{name}“ wurde nicht hinzugefügt. Sie können Bilder, PDF- und Word-Dateien anhängen.',
   confidential: 'Vertraulich', remove: 'Entfernen', removeFile: '{name} entfernen', protoSample: 'Beispieldatei hinzufügen:',
-  submit: 'Meldung absenden', cancel: 'Abbrechen',
+  submit: 'Meldung senden', sendReminder: 'Prüfen Sie Text und Dateien vor dem Senden auf personenbezogene Daten.', cancel: 'Abbrechen',
   aiHelp: 'KI-Hilfe', scripted: 'VORGEGEBENE ANTWORTEN', chatNoPII: 'Fügen Sie keine personenbezogenen Daten ein.',
   chatHello: 'Hallo! Beschreiben Sie in eigenen Worten, was schiefging. Ich schlage Text für das Formular vor.',
   you: 'Sie', chatMsg: 'Nachricht an die KI-Hilfe', send: 'Senden', example: 'Beispielantwort verwenden', typing: 'KI-Hilfe schreibt…',
@@ -482,7 +482,7 @@ de: {
   ask_steps: 'Was haben Sie direkt davor gemacht? Nennen Sie die Schritte, getrennt durch Kommas.',
   ask_expected: 'Was hätten Sie stattdessen erwartet?',
   ask_tech: 'Welches Gerät, welchen Browser und welche E!-Version nutzen Sie? Die Version steht unter Hilfe › Über.',
-  done: 'Danke. Das Formular ist bereit. Hängen Sie bei Bedarf Dateien an, prüfen Sie alles und klicken Sie auf Meldung absenden.',
+  done: 'Danke. Das Formular ist bereit. Hängen Sie bei Bedarf Dateien an, prüfen Sie alles und klicken Sie auf Meldung senden.',
   generic: 'Danke. Um ein Feld zu ändern, bearbeiten Sie es direkt im Formular.',
   piiRemoved: 'Ich habe etwas weggelassen, das nach personenbezogenen Daten aussieht (E-Mail-Adresse oder Telefonnummer).',
   addToForm: 'Ins Formular', edit: 'Bearbeiten', added: 'Ins Formular übernommen', addedToast: 'Ins Formular übernommen.',
@@ -530,14 +530,14 @@ const JOURNEYS = {
       'In AI help, describe the bug or press “Use example answer”, then Send.',
       'Press “Add to form” on each suggestion. The fields get an “AI written” label.',
       'Under Attachments, add “screenshot.png” and tick Confidential.',
-      'Press Submit report, check the “Before you send” panel, then Send report.'] },
+      'Press Send report. With every field filled in, the report is sent straight away; if an optional field is empty, the “Before you send” panel opens first.'] },
     { id: 'B', title: 'B. Question, response, resolve', steps: [
       'You are the Reviewer on SUP-1048. A question is already typed in the composer with “Mark as question” ticked. Press Post.',
       'Switch role to Submitter. Choose Needs Action, open SUP-1048 and press Respond.',
       'Switch role to Reviewer. Choose Needs Action: SUP-1048 shows the response, linked to its question.',
       'Set the status to Resolved, write the explanation for the client and Save.'] },
     { id: 'C1', title: 'C1. Add a video', steps: ['On the form, add “screen-recording.mp4” as a sample file (or pick any video). It is refused with a message.'] },
-    { id: 'C2', title: 'C2. Send with empty optional fields', steps: ['Title and Description are filled in. Press Submit report: the “Before you send” panel lists the empty fields with hints.'] },
+    { id: 'C2', title: 'C2. Send with empty optional fields', steps: ['Title and Description are filled in. Press Send report: the “Before you send” panel lists only the empty fields, with hints.'] },
     { id: 'C3', title: 'C3. Colleague, read only', steps: ['You are Lena S. (Colleague) on SUP-1048: no comment box, no Respond button, confidential file hidden.'] },
     { id: 'C4', title: 'C4. Closing without an explanation', steps: ['You are the Reviewer on SUP-1045. Choose Resolved in the status menu and press Save without writing anything.'] },
     { id: 'C5', title: 'C5. Closed report', steps: ['You are the Reviewer on SUP-1041 (Not a bug, Bluebird Contracts). The composer shows “Reopen this report to ask a question.” instead of Mark as question. You can still attach files to a public comment.'] },
@@ -548,14 +548,14 @@ const JOURNEYS = {
       'Beschreiben Sie in der KI-Hilfe den Fehler oder klicken Sie „Beispielantwort verwenden“, dann Senden.',
       'Klicken Sie bei jedem Vorschlag „Ins Formular“. Die Felder erhalten das Label „Von KI geschrieben“.',
       'Fügen Sie unter Anhänge „screenshot.png“ hinzu und setzen Sie den Haken bei Vertraulich.',
-      'Klicken Sie Meldung absenden, prüfen Sie „Bevor Sie senden“ und klicken Sie Meldung senden.'] },
+      'Klicken Sie Meldung senden. Sind alle Felder ausgefüllt, wird die Meldung sofort gesendet; ist ein optionales Feld leer, öffnet sich vorher „Bevor Sie senden“.'] },
     { id: 'B', title: 'B. Frage, Antwort, Lösen', steps: [
       'Sie sind Reviewer:in in SUP-1048. Eine Frage steht im Eingabefeld, „Als Frage markieren“ ist gesetzt. Klicken Sie Posten.',
       'Wechseln Sie zur Rolle Meldende Person. Wählen Sie „Aktion nötig“, öffnen Sie SUP-1048 und klicken Sie Antworten.',
       'Wechseln Sie zur Rolle Reviewer:in. Unter „Aktion nötig“ zeigt SUP-1048 die Antwort, verknüpft mit der Frage.',
       'Setzen Sie den Status auf Gelöst, schreiben Sie die Erklärung für den Kunden und speichern Sie.'] },
     { id: 'C1', title: 'C1. Video anhängen', steps: ['Fügen Sie im Formular „screen-recording.mp4“ als Beispieldatei hinzu (oder ein eigenes Video). Es wird mit einer Meldung abgelehnt.'] },
-    { id: 'C2', title: 'C2. Mit leeren optionalen Feldern senden', steps: ['Titel und Beschreibung sind ausgefüllt. Klicken Sie Meldung absenden: „Bevor Sie senden“ listet die leeren Felder mit Hinweisen.'] },
+    { id: 'C2', title: 'C2. Mit leeren optionalen Feldern senden', steps: ['Titel und Beschreibung sind ausgefüllt. Klicken Sie Meldung senden: „Bevor Sie senden“ listet nur die leeren Felder mit Hinweisen.'] },
     { id: 'C3', title: 'C3. Kolleg:in, nur lesen', steps: ['Sie sind Lena S. (Kolleg:in) in SUP-1048: kein Kommentarfeld, kein Antworten-Button, vertrauliche Datei ausgeblendet.'] },
     { id: 'C4', title: 'C4. Ohne Erklärung abschließen', steps: ['Sie sind Reviewer:in in SUP-1045. Wählen Sie im Statusmenü „Gelöst“ und klicken Sie Speichern, ohne etwas zu schreiben.'] },
     { id: 'C5', title: 'C5. Abgeschlossene Meldung', steps: ['Sie sind Reviewer:in in SUP-1041 (Kein Fehler, Bluebird Contracts). Statt „Als Frage markieren“ steht im Eingabebereich „Öffnen Sie diese Meldung wieder, um eine Frage zu stellen.“ Dateien können Sie weiterhin an öffentliche Kommentare anhängen.'] },
@@ -910,7 +910,8 @@ function viewForm() {
             <button type="button" class="btn btn-tertiary btn-sm" data-action="sample-file" data-kind="word">steps-notes.docx</button>
             <button type="button" class="btn btn-tertiary btn-sm" data-action="sample-file" data-kind="video">screen-recording.mp4</button></div>
         </fieldset>
-        <div class="form-actions"><button type="submit" id="btn-submit" class="btn btn-primary">${esc(t('submit'))}</button><button type="button" class="btn btn-tertiary" data-action="home">${esc(t('cancel'))}</button></div>
+        <p class="warn send-reminder" id="send-reminder">${esc(t('sendReminder'))}</p>
+        <div class="form-actions" style="padding-top:0"><button type="submit" id="btn-submit" aria-describedby="send-reminder" class="btn btn-primary">${esc(t('submit'))}</button><button type="button" class="btn btn-tertiary" data-action="home">${esc(t('cancel'))}</button></div>
       </form>
       <div class="chat-col">${viewChat()}</div>
     </div>
@@ -1197,10 +1198,7 @@ function viewModal() {
   if (m.type === 'before') {
     const d = state.draft;
     const empty = ['steps', 'expected', 'device', 'browser', 'version'].filter(k => !d[k].trim());
-    const conf = d.files.filter(f => f.confidential).length;
-    const body = `<div class="reminder" role="note"><b class="warn">${esc(t('bsPII'))}</b><p>${esc(t('bsPIIBody'))}</p></div>
-      ${empty.length ? `<div><p style="margin-bottom:.5rem">${esc(t('bsEmpty'))}</p><ul class="empty-list">${empty.map(k => `<li><span><b>${esc(t('f_' + k))}</b><br><button class="btn btn-tertiary btn-sm" style="padding-left:0" data-action="goto-field" data-field="${k}">${esc(t('goToField'))}</button></span><p class="msg hint">${esc(t('hint_' + k))}</p></li>`).join('')}</ul></div>` : `<p>${esc(t('bsComplete'))}</p>`}
-      <p class="muted">${esc(d.files.length ? t('bsFiles', { n: d.files.length, c: conf }) : t('bsNoFiles'))}</p>`;
+    const body = `${empty.length ? `<div><p style="margin-bottom:.5rem">${esc(t('bsEmpty'))}</p><ul class="empty-list">${empty.map(k => `<li><span><b>${esc(t('f_' + k))}</b><br><button class="btn btn-tertiary btn-sm" style="padding-left:0" data-action="goto-field" data-field="${k}">${esc(t('goToField'))}</button></span><p class="msg hint">${esc(t('hint_' + k))}</p></li>`).join('')}</ul></div>` : ''}`;
     const foot = `<button class="btn btn-secondary" data-action="close-modal">${esc(t('backToForm'))}</button><button class="btn btn-primary" id="btn-send" data-action="send-report" data-autofocus="1">${esc(t('sendReport'))}</button>`;
     return modalShell('bs', t('bsTitle'), body, foot);
   }
@@ -1415,6 +1413,8 @@ document.addEventListener('submit', e => {
   const f = e.target; const kind = f.dataset.submit; const r = getReport(state.reportId);
   if (kind === 'report') {
     if (!validateDraft()) { render(); const first = document.querySelector('.field.has-err input, .field.has-err textarea'); if (first) { first.scrollIntoView({ block: 'center' }); first.focus({ preventScroll: true }); } return; }
+    const d = state.draft;
+    if (['steps', 'expected', 'device', 'browser', 'version'].every(k => d[k].trim())) { sendReport(); return; }
     state.modal = { type: 'before', ret: '#btn-submit' }; render();
   } else if (kind === 'chat') chatSend();
   else if (kind === 'comment') {
